@@ -1,0 +1,314 @@
+[
+  {
+    "codigo": "1.1",
+    "nombre": "Componente 1.1",
+    "actividades": [
+      {
+        "codigo": "1.1.2",
+        "nombre": "Programa de formación en competencias emprendedoras personales",
+        "modulos": [
+          {
+            "nombre": "Liderazgo y gestión de equipos",
+            "sesiones": [
+              {
+                "nombre": "Habilidades de liderazgo para emprendedores",
+                "explicacion": null,
+                "contenido": "Introducción al liderazgo, estilos de liderazgo y su impacto.",
+                "recurso": "Definir la visión y misión de un emprendimiento, identificar valores y objetivos\nEjercicio práctico; crear una declaración de visión y misión",
+                "perfil": "Al finalizar, el participante reconoce sus principales fortalezas como líder y formula de manera sencilla la misión, visión, valores y objetivos básicos de su emprendimiento.",
+                "codigo": "1.1.2-M1-S1"
+              },
+              {
+                "nombre": "Comunicación efectiva y manejo de conflictos",
+                "explicacion": null,
+                "contenido": "Gestión de conflictos y resolución de problemas.\nDelegación y empoderamiento.",
+                "recurso": "Discusiones en grupo y taller de análisis de casos de estudio\nEjercicios de role-playing",
+                "perfil": "El participante comunica sus ideas con claridad, escucha activamente y aplica pasos sencillos para prevenir y resolver conflictos con trabajadores, socios, proveedores o clientes.",
+                "codigo": "1.1.2-M1-S2"
+              },
+              {
+                "nombre": "Construcción de equipos de trabajo efectivos",
+                "explicacion": null,
+                "contenido": "Liderazgo y motivación",
+                "recurso": "Delegación y empoderamiento, ejercicio práctico",
+                "perfil": "El participante organiza un equipo de trabajo, distribuye responsabilidades según las capacidades de cada integrante y utiliza acciones básicas para motivar y orientar al equipo hacia una meta común.",
+                "codigo": "1.1.2-M1-S3"
+              }
+            ],
+            "codigo": "1.1.2-M1"
+          },
+          {
+            "nombre": "Organización y gestión de tiempos",
+            "sesiones": [
+              {
+                "nombre": "Autodisciplina y organización",
+                "explicacion": null,
+                "contenido": "Toma de decisiones, gestión del tiempo, organización y atención al cliente.",
+                "recurso": "Dinámicas de grupo y role-playing para simular situaciones de negocio",
+                "perfil": "El participante organiza sus actividades personales y laborales, establece prioridades y toma decisiones sencillas para cumplir oportunamente sus responsabilidades en el emprendimiento.",
+                "codigo": "1.1.2-M2-S1"
+              },
+              {
+                "nombre": "Gestión del tiempo",
+                "explicacion": null,
+                "contenido": "Registro de ingresos, gastos, cálculo de costos y administración de efectivo.",
+                "recurso": "Ejercicio práctico en el que cada participante registra transacciones",
+                "perfil": "El participante elabora una planificación básica diaria o semanal, identifica actividades que le hacen perder tiempo y aplica herramientas sencillas para mejorar el cumplimiento de sus tareas.",
+                "codigo": "1.1.2-M2-S2"
+              }
+            ],
+            "codigo": "1.1.2-M2"
+          },
+          {
+            "nombre": "Clientes y ventas",
+            "sesiones": [
+              {
+                "nombre": "Orientación al cliente y habilidades para vender",
+                "explicacion": null,
+                "contenido": "Introducción a la venta y marketing",
+                "recurso": "Taller: identificación de habilidades (análisis SWOT)",
+                "perfil": "El participante identifica las necesidades de sus clientes, explica con claridad los beneficios de sus productos o servicios y aplica técnicas básicas de atención, venta y seguimiento al cliente.",
+                "codigo": "1.1.2-M3-S1"
+              }
+            ],
+            "codigo": "1.1.2-M3"
+          }
+        ]
+      },
+      {
+        "codigo": "1.1.3",
+        "nombre": "Programa de capacitación en gestión de negocios para emprendimientos del sector comercio",
+        "modulos": [
+          {
+            "nombre": "Fortalecimiento del modelo de negocio",
+            "sesiones": [
+              {
+                "nombre": "Concepto y herramientas para diseñar modelos de negocio",
+                "explicacion": null,
+                "contenido": "Definición de modelo de negocio y su importancia en la estrategia empresarial.\nCanvas, explicación de los 9 bloques",
+                "recurso": "Taller de modelo de negocio utilizando Canvas, trabajo en grupo para aplicar los conceptos",
+                "perfil": "El participante reconoce cómo funciona su negocio y completa, con ejemplos sencillos, los principales elementos de un Canvas: clientes, productos, recursos, actividades, costos e ingresos.",
+                "codigo": "1.1.3-M1-S1"
+              },
+              {
+                "nombre": "Segmentación de clientes y propuesta de valor adaptada al mercado local",
+                "explicacion": null,
+                "contenido": "Introducción a la segmentación de clientes, y definición de propuesta de valor efectiva, análisis de la estrategia de segmentación y propuesta de valor de la competencia, creación de una propuesta de valor adaptada a los segmentos de clientes del negocio",
+                "recurso": "Ejercicio de segmentación de clientes y creación de propuesta de valor, trabajo en grupo para aplicar los conceptos",
+                "perfil": "El participante identifica uno o más tipos de clientes de su localidad, reconoce sus principales necesidades y redacta una propuesta sencilla que explique qué ofrece, para quién y por qué deberían comprarle.",
+                "codigo": "1.1.3-M1-S2"
+              },
+              {
+                "nombre": "Análisis de la competencia y estrategias de diferenciación",
+                "explicacion": null,
+                "contenido": "Importancia del análisis de la competencia, identificación de estrategias de diferenciación en su negocio, herramientas para analizar la competencia",
+                "recurso": "Ejercicio de análisis de la competencia y diferenciación, trabajo en grupo para aplicar los conceptos",
+                "perfil": "El participante identifica a sus principales competidores, compara precios, productos, atención y calidad, y propone al menos una acción sencilla para diferenciar su negocio.",
+                "codigo": "1.1.3-M1-S3"
+              }
+            ],
+            "codigo": "1.1.3-M1"
+          },
+          {
+            "nombre": "Marketing y ventas",
+            "sesiones": [
+              {
+                "nombre": "Estrategias de marketing digital y tradicional para emprendimientos (Uso de redes sociales y herramientas digitales para la promoción y ventas).",
+                "explicacion": null,
+                "contenido": "Fundamentos del marketing digital, optimización de los motores de búsqueda (SEO), redes sociales, contenido",
+                "recurso": "Ejercicio de creación de contenido de marketing,",
+                "perfil": "El participante selecciona medios de promoción adecuados para su negocio y crea una publicación sencilla para redes sociales o un material promocional físico con información clara del producto, precio y forma de contacto.",
+                "codigo": "1.1.3-M2-S1"
+              },
+              {
+                "nombre": "Importancia de la creación de una marca y posicionamiento",
+                "explicacion": null,
+                "contenido": "Diferenciación y reconocimiento en el mercado, identidad y personalidad de la empresa\nDefinición de posicionamiento, análisis de la competencia, identificación del público objetivo",
+                "recurso": "Taller: Desarrollo de una estrategia de marca",
+                "perfil": "El participante define los elementos básicos de su marca —nombre, colores, mensaje y características principales— y explica de manera sencilla cómo desea que los clientes reconozcan su negocio.",
+                "codigo": "1.1.3-M2-S2"
+              },
+              {
+                "nombre": "Desarrollo de canales de venta y estrategias de fidelización de clientes",
+                "explicacion": null,
+                "contenido": "Tipos de canales de venta y estrategias de fidelización, análisis de la experiencia del cliente y su impacto",
+                "recurso": "Ejercicio de identificación de oportunidades para desarrollar canales de venta y creación de un plan de fidelización de clientes",
+                "perfil": "El participante identifica los canales más adecuados para vender sus productos o servicios y propone acciones prácticas para mantener el contacto, mejorar la atención y lograr que los clientes vuelvan a comprar.",
+                "codigo": "1.1.3-M2-S3"
+              }
+            ],
+            "codigo": "1.1.3-M2"
+          },
+          {
+            "nombre": "Gestión financiera básica",
+            "sesiones": [
+              {
+                "nombre": "Principios de contabilidad para emprendedores",
+                "explicacion": null,
+                "contenido": "Fundamentos de finanzas, contabilidad básica, estado de resultados y balance",
+                "recurso": "Taller 1: Hojas de cálculo (Excel y Google Sheets) y Software de contabilidad",
+                "perfil": "El participante registra ordenadamente sus ventas, ingresos, compras y gastos; diferencia el dinero del negocio del dinero personal y determina, mediante una operación sencilla, si obtuvo ganancia o pérdida.",
+                "codigo": "1.1.3-M3-S1"
+              },
+              {
+                "nombre": "Presupuesto, cálculo de costos, precios y punto de equilibrio",
+                "explicacion": null,
+                "contenido": "Introducción al presupuesto, conceptos básicos de costos, precio y punto de equilibrio",
+                "recurso": "Taller 1: elaboración de un presupuesto, cálculo de costos para un producto o servicio.\nTaller 2: Determinación del precio para un producto o servicio\nTaller 3: Ejercicio práctico del cálculo del punto de equilibrio para un negocio",
+                "perfil": "El participante elabora un presupuesto básico, diferencia costos fijos y variables, calcula el costo de su producto o servicio y establece un precio de venta que permita cubrir sus gastos y obtener una ganancia.",
+                "codigo": "1.1.3-M3-S2"
+              },
+              {
+                "nombre": "Fuentes de financiamiento para emprendimientos en Arequipa",
+                "explicacion": null,
+                "contenido": "Tipos de financiamiento, fuentes de financiamiento tradicionales y alternativos (crowdfunding, incubadoras)",
+                "recurso": "Trabajo en equipo para crear un plan de financiamiento, presentación y discusión",
+                "perfil": "El participante reconoce diferentes alternativas de financiamiento, compara requisitos, costos, cuotas y riesgos, y selecciona la opción más conveniente de acuerdo con las necesidades y capacidad de pago de su negocio.",
+                "codigo": "1.1.3-M3-S3"
+              }
+            ],
+            "codigo": "1.1.3-M3"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "codigo": "2.1",
+    "nombre": "Componente 2.1",
+    "actividades": [
+      {
+        "codigo": "2.1.1",
+        "nombre": "Taller de capacitación para la identificación de cuellos de botella en el emprendimiento previo a la elaboración de sus planes de mejora",
+        "modulos": [
+          {
+            "nombre": "Identificación de cuellos de botellas comunes en el emprendimiento",
+            "sesiones": [
+              {
+                "nombre": "Introducción a los cuellos de botella en el emprendimiento",
+                "explicacion": null,
+                "contenido": "Definición y conceptos básicos de cuellos de botella\nImportancia de identificar cuellos de botella en el emprendimiento",
+                "recurso": "Taller: Identificación de un cuello de botella en tu negocio",
+                "perfil": "El participante comprende, mediante ejemplos cotidianos, qué es un cuello de botella e identifica al menos un problema que retrasa, encarece o dificulta el funcionamiento de su negocio.",
+                "codigo": "2.1.1-M1-S1"
+              },
+              {
+                "nombre": "Tipos de cuello de botellas",
+                "explicacion": null,
+                "contenido": "Cuellos de botella en la producción\nCuellos de botella en la logística y distribución\nCuellos de botella financieros\nCuellos de botella en personal",
+                "recurso": "Ejemplos de cuellos de botella en la logística y distribución",
+                "perfil": "El participante reconoce y clasifica los principales problemas de su emprendimiento relacionados con producción, compras, ventas, distribución, dinero, equipos o personal.",
+                "codigo": "2.1.1-M1-S2"
+              }
+            ],
+            "codigo": "2.1.1-M1"
+          },
+          {
+            "nombre": "Análisis de procesos y flujo de trabajo",
+            "sesiones": [
+              {
+                "nombre": "Herramientas para identificar cuellos de botella",
+                "explicacion": null,
+                "contenido": "Análisis de flujo de proceso\nIdentificación de puntos críticos en el proceso\nHerramientas para mapear procesos (diagramas de flujo, mapas de proceso)",
+                "recurso": "Taller: diagrama de flujo y análisis de raíz, aplicación de las herramientas aprendidas",
+                "perfil": "El participante representa con dibujos, símbolos o pasos escritos cómo realiza una actividad de su negocio, identifica el punto donde se produce el principal problema y reconoce una posible causa.",
+                "codigo": "2.1.1-M2-S1"
+              }
+            ],
+            "codigo": "2.1.1-M2"
+          },
+          {
+            "nombre": "Estrategias para Solucionar Cuellos de Botella",
+            "sesiones": [
+              {
+                "nombre": "Estrategias para Solucionar Cuellos de Botella",
+                "explicacion": null,
+                "contenido": "Estrategias para solucionar cuellos de botella\nPriorización de acciones\nImplementación de planes de acción\nSeguimiento y evaluación de resultados",
+                "recurso": "Ejemplos de solución de cuellos de botella\nEjemplos de implementación exitosa",
+                "perfil": "El participante selecciona un problema prioritario, propone una solución sencilla y elabora un plan básico que indique qué se hará, quién será responsable, cuándo se realizará y cómo se verificará el resultado.",
+                "codigo": "2.1.1-M3-S1"
+              }
+            ],
+            "codigo": "2.1.1-M3"
+          }
+        ]
+      },
+      {
+        "codigo": "2.1.2",
+        "nombre": "Programa de capacitación para elaboración de planes de mejora viables",
+        "modulos": [
+          {
+            "nombre": "Programa de capacitación para elaboración de planes de mejora viables",
+            "sesiones": [
+              {
+                "nombre": "Analizando el Entorno",
+                "explicacion": "Comprender el contexto socioeconómico y de mercado en el que se desenvuelven las unidades productivas artesanales.",
+                "contenido": "Identificación de tendencias y oportunidades en el sector artesanal.\nFODA (Fortalezas, Oportunidades, Debilidades y Amenazas) de la unidad productiva.\nAnálisis de actores clave: proveedores, competidores, clientes y aliados estratégicos.",
+                "recurso": "Realización de un análisis FODA y discusión de los resultados para identificar áreas de oportunidad y riesgo",
+                "perfil": "El participante reconoce las principales fortalezas y dificultades de su negocio, identifica oportunidades y riesgos de su entorno y reconoce a sus principales clientes, proveedores, competidores y posibles aliados.",
+                "codigo": "2.1.2-M1-S1"
+              },
+              {
+                "nombre": "Planificación del Negocio",
+                "explicacion": "Desarrollar una estructura básica para planificar las actividades de la unidad productiva y establecer metas claras.",
+                "contenido": "Definición de misión, visión y valores del negocio.\nEstablecimiento de objetivos SMART (específicos, medibles, alcanzables, relevantes y temporales).\nCreación de un plan de acción inicial.",
+                "recurso": "Taller de redacción de misión, visión y valores, y establecimiento de objetivos y metas para la unidad productiva.",
+                "perfil": "El participante define de manera sencilla la misión, visión y valores de su emprendimiento, establece una meta realista y elabora un plan básico que indique las actividades, responsables y fechas necesarias para alcanzarla.",
+                "codigo": "2.1.2-M1-S2"
+              },
+              {
+                "nombre": "Conociendo mi Mercado",
+                "explicacion": "Capacitar a los participantes en la identificación y segmentación de su mercado objetivo.",
+                "contenido": "Identificación del cliente ideal y segmentación de mercado.\nAnálisis de necesidades y preferencias del cliente.\nEstrategias de posicionamiento en el mercado artesanal.",
+                "recurso": "Creación de un perfil de cliente ideal y ejercicio de segmentación de mercado.",
+                "perfil": "El participante identifica a sus principales clientes, reconoce sus necesidades y preferencias y propone acciones sencillas para diferenciar y posicionar sus productos en el mercado local.",
+                "codigo": "2.1.2-M1-S3"
+              },
+              {
+                "nombre": "Estructura de Costos y Plan Financiero",
+                "explicacion": "Proporcionar conocimientos básicos en estructura de costos y planificación financiera",
+                "contenido": "Identificación de costos fijos y variables.\nCálculo del punto de equilibrio.\nCreación de un plan financiero básico",
+                "recurso": "Taller práctico para el cálculo de costos y punto de equilibrio en la producción artesanal.",
+                "perfil": "El participante diferencia los costos fijos y variables, calcula de manera básica el costo de sus productos, establece un precio de venta y determina cuánto necesita vender para cubrir sus gastos.",
+                "codigo": "2.1.2-M1-S4"
+              },
+              {
+                "nombre": "Control de los Movimientos del Negocio",
+                "explicacion": "Brindar herramientas para el control y registro de ingresos y egresos en la unidad productiva.",
+                "contenido": "Métodos de registro y control de ingresos y gastos.\nControl de inventarios y rotación de productos.\nHerramientas para la elaboración de reportes financieros básicos.",
+                "recurso": "Ejercicio práctico de registro de movimientos financieros y control de inventario.",
+                "perfil": "El participante registra ordenadamente sus ingresos, gastos, compras, ventas y existencias, y utiliza esta información para conocer la situación básica de su negocio y tomar decisiones.",
+                "codigo": "2.1.2-M1-S5"
+              },
+              {
+                "nombre": "Gestión de la Calidad y Estrategias de Comercialización",
+                "explicacion": "Fortalecer la gestión de calidad en los productos y diseñar estrategias efectivas de comercialización.",
+                "contenido": "Principios de gestión de la calidad en productos artesanales.\nEstrategias de marketing y promoción.\nCanales de venta y distribución.",
+                "recurso": "Diseño de una estrategia de comercialización y promoción basada en los valores de la unidad productiva.",
+                "perfil": "El participante identifica aspectos que debe mejorar en la calidad de sus productos y establece acciones sencillas de promoción, atención al cliente, venta y distribución.",
+                "codigo": "2.1.2-M1-S6"
+              },
+              {
+                "nombre": "Formalización del Negocio",
+                "explicacion": "Brindar conocimientos sobre los pasos y beneficios de la formalización del negocio",
+                "contenido": "Proceso de formalización y registro de la unidad productiva.\nAspectos legales y tributarios básicos.\nBeneficios y retos de la formalización.",
+                "recurso": "Simulación de los pasos para la formalización de la unidad productiva, con un enfoque en la identificación de requisitos legales.",
+                "perfil": "El participante reconoce los principales pasos, requisitos, costos y beneficios de formalizar su emprendimiento e identifica la alternativa de formalización más adecuada para su situación.",
+                "codigo": "2.1.2-M1-S7"
+              },
+              {
+                "nombre": "Presentación de Planes de Mejora y Retroalimentación",
+                "explicacion": "Presentar los planes de mejora desarrollados por cada participante y recibir retroalimentación constructiva.",
+                "contenido": "Presentación de los planes de mejora con enfoque en cada módulo. Evaluación y retroalimentación para optimizar el plan final.",
+                "recurso": "Presentación individual de planes de mejora y discusión grupal para evaluar la viabilidad y aplicabilidad de cada propuesta",
+                "perfil": "El participante presenta y explica con sus propias palabras su plan de mejora, recibe recomendaciones y realiza los ajustes necesarios para que sus acciones sean claras, realistas y aplicables.",
+                "codigo": "2.1.2-M1-S8"
+              }
+            ],
+            "codigo": "2.1.2-M1"
+          }
+        ]
+      }
+    ]
+  }
+]

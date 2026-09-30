@@ -1,0 +1,1 @@
+ALTER TABLE "usuarios" ADD COLUMN "notificaciones_vistas" timestamp with time zone;

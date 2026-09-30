@@ -1,0 +1,80 @@
+@import "tailwindcss";
+
+/* Paleta corporativa: Fondoempleo */
+@theme {
+  --font-sans: "IBM Plex Sans", system-ui, sans-serif;
+
+  /* Colores de Fondoempleo: verde del logo y una escala de grises neutros */
+  --color-marino: #36383b; /* gris carbón: títulos, menú lateral, botones oscuros */
+  --color-marino-2: #28927c; /* verde Fondoempleo: elemento activo del menú */
+  --color-marino-3: #45474b; /* gris del menú al pasar el mouse */
+  --color-niebla: #cdd0d3; /* texto sobre el menú oscuro */
+  --color-acento: #28927c; /* verde Fondoempleo: botones principales y enlaces */
+  --color-acento-oscuro: #1d7563;
+  --color-fondo: #e8eeec; /* área de trabajo: gris con un toque del verde Fondoempleo */
+  --color-borde: #dde0e3;
+  --color-borde-fuerte: #c5c9ce;
+  --color-texto: #26282b;
+  --color-texto-2: #5e6166;
+}
+
+body {
+  background: var(--color-fondo);
+  color: var(--color-texto);
+}
+
+/* Área de trabajo: gris verdoso con luz verde arriba, trama de puntos y los arcos del logo de fondo */
+.espacio-trabajo {
+  position: relative;
+  isolation: isolate;
+  background-color: var(--color-fondo);
+  background-image:
+    radial-gradient(circle at 1px 1px, rgb(40 146 124 / 0.13) 1px, transparent 0),
+    radial-gradient(1100px 520px at 100% -8%, rgb(40 146 124 / 0.2), transparent 62%),
+    radial-gradient(900px 480px at -8% 105%, rgb(110 112 116 / 0.16), transparent 62%),
+    linear-gradient(180deg, #eef4f2 0%, #e4ebe9 100%);
+  background-size: 22px 22px, auto, auto, auto;
+  background-attachment: fixed;
+}
+
+/* Componentes reutilizables */
+@utility card {
+  @apply rounded-xl border border-borde bg-white shadow-[0_1px_2px_rgb(38_40_43/0.06),0_1px_3px_rgb(38_40_43/0.04)];
+}
+@utility btn {
+  @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors disabled:opacity-50;
+}
+@utility btn-primario {
+  @apply btn bg-acento text-white hover:bg-acento-oscuro;
+}
+@utility btn-secundario {
+  @apply btn border border-borde-fuerte bg-white text-marino shadow-[0_1px_1px_rgb(38_40_43/0.04)] hover:bg-[#f5f6f7];
+}
+@utility btn-oscuro {
+  @apply btn bg-marino text-white hover:bg-marino-2;
+}
+@utility campo {
+  @apply w-full rounded-lg border border-borde-fuerte bg-white px-3 py-2.5 text-sm outline-none focus:border-marino-2 focus:ring-2 focus:ring-marino-2/20;
+}
+@utility etiqueta {
+  @apply mb-1.5 block text-xs text-texto-2;
+}
+@utility th {
+  @apply bg-[#f5f6f7] px-3 py-2.5 text-left text-xs font-semibold text-texto-2 first:pl-5 last:pr-5;
+}
+@utility td {
+  @apply border-t border-[#eceef0] px-3 py-3 align-middle first:pl-5 last:pr-5;
+}
+@utility enlace {
+  @apply font-semibold text-acento hover:text-acento-oscuro;
+}
+
+/* Tablas anchas dentro de un cuadro: en pantallas angostas se deslizan de lado en vez de desbordar */
+.card:has(table) {
+  overflow-x: auto;
+}
+/* Lo posicionado dentro (textos para lectores de pantalla, etiquetas) queda contenido en su cuadro */
+.card:has(table),
+.overflow-x-auto {
+  position: relative;
+}

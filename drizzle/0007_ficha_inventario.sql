@@ -1,0 +1,2 @@
+ALTER TABLE "ficha_items" ADD COLUMN "insumo_id" integer;--> statement-breakpoint
+ALTER TABLE "ficha_items" ADD CONSTRAINT "ficha_items_insumo_id_insumos_id_fk" FOREIGN KEY ("insumo_id") REFERENCES "public"."insumos"("id") ON DELETE set null ON UPDATE no action;
