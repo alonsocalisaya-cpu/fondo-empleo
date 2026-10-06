@@ -6,7 +6,8 @@ import { db } from "@/db";
 import { asistencias, inscripciones, participantes, programaciones } from "@/db/schema";
 import { listarProgramaciones, ruta, combinadas } from "@/lib/consultas";
 import { fechaCorta, hoyISO, hora, sumarDias, TURNO_LABEL } from "@/lib/fechas";
-import { ChipEstado, Encabezado, Kpi, Pestanas, TABS_PRE, Vacio, nombreCompleto, Combinadas } from "@/components/ui";
+import { ChipEstado, Encabezado, Kpi, Pestanas, TABS_PRE, Vacio, nombreCompleto, TituloSesion } from "@/components/ui";
+import CampoFecha from "@/components/CampoFecha";
 
 export const metadata = { title: "Resultados de asistencia" };
 
@@ -74,11 +75,11 @@ export default async function PostCapacitacion({ searchParams }: PageProps<"/ope
       <form className="card flex flex-wrap items-end gap-3.5 px-5 py-4">
         <div>
           <label htmlFor="p-desde" className="etiqueta">Desde</label>
-          <input id="p-desde" type="date" name="desde" defaultValue={desde} className="campo" />
+          <CampoFecha id="p-desde" name="desde" value={desde} />
         </div>
         <div>
           <label htmlFor="p-hasta" className="etiqueta">Hasta</label>
-          <input id="p-hasta" type="date" name="hasta" defaultValue={hasta} className="campo" />
+          <CampoFecha id="p-hasta" name="hasta" value={hasta} />
         </div>
         <button className="btn-oscuro">Ver resultados</button>
       </form>
@@ -112,10 +113,9 @@ export default async function PostCapacitacion({ searchParams }: PageProps<"/ope
                     <ChipEstado estado={p.estado} />
                   </div>
                   <div className="flex flex-col gap-0.5">
-                    <span className="font-medium">{p.sesion.nombre}</span>
+                    <span className="font-medium"><TituloSesion nombre={p.sesion.nombre} combinadas={combinadas(p)} /></span>
                     <span className="text-[13px] text-texto-2">{ruta(p)}</span>
                     {p.observacion && <span className="text-xs italic text-[#92400e]">{p.observacion}</span>}
-                    <Combinadas nombres={combinadas(p)} />
                   </div>
                   <div className="flex flex-col gap-1.5">
                     <div className="flex items-baseline justify-between">

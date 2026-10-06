@@ -1,9 +1,9 @@
 import SiPuede from "@/components/SiPuede";
 import { connection } from "next/server";
-import { and, eq, ilike, or, sql } from "drizzle-orm";
+import { and, eq, ilike, inArray, or, sql } from "drizzle-orm";
 import Link from "next/link";
 import { db } from "@/db";
-import { asistencias, inscripciones, participantes, sedes } from "@/db/schema";
+import { asistencias, estructuras, inscripciones, participantes, sedes } from "@/db/schema";
 import { Encabezado, Pestanas, TABS_PRE, Vacio } from "@/components/ui";
 import FormAlta from "@/components/FormAlta";
 import { crearParticipante, eliminarParticipante } from "@/lib/acciones-maestros";
@@ -21,9 +21,18 @@ export default async function Participantes({ searchParams }: PageProps<"/operat
   const patron = `%${q}%`;
 
   const sede = Number(sp.sede) || 0;
+  const programa = Number(sp.programa) || 0;
 
-  const [filas, listaSedes, porSede] = await Promise.all([
+  const [listaSedes, programas, porSede] = await Promise.all([
+    db.query.sedes.findMany({ where: (t, { eq }) => eq(t.activa, true), orderBy: (t) => t.nombre }),
+    db.select({ id: estructuras.id, nombre: estructuras.nombre }).from(estructuras).orderBy(estructuras.orden, estructuras.nombre),
     db
+      .select({ id: participantes.sedeId, n: sql<number>`count(*)::int` })
+      .from(participantes)
+      .groupBy(participantes.sedeId),
+  ]);
+  const sedesDelPrograma = programa ? listaSedes.filter((x) => x.estructuraId === programa).map((x) => x.id) : [];
+  const filas = await db
       .select({
         p: participantes,
         sede: sedes.nombre,
@@ -40,22 +49,16 @@ export default async function Participantes({ searchParams }: PageProps<"/operat
         and(
           q ? or(ilike(participantes.nombres, patron), ilike(participantes.apellidos, patron), ilike(participantes.dni, patron)) : undefined,
           sede ? eq(participantes.sedeId, sede) : undefined,
+          programa ? (sedesDelPrograma.length ? inArray(participantes.sedeId, sedesDelPrograma) : sql`false`) : undefined,
         ),
       )
       .groupBy(participantes.id, sedes.nombre)
       .orderBy(sedes.nombre, participantes.apellidos, participantes.nombres)
-      .limit(300),
-    db.query.sedes.findMany({ where: (t, { eq }) => eq(t.activa, true), orderBy: (t) => t.nombre }),
-    db
-      .select({ id: participantes.sedeId, n: sql<number>`count(*)::int` })
-      .from(participantes)
-      .groupBy(participantes.sedeId),
-  ]);
+      .limit(300);
   const opcSedes = listaSedes.map((x) => ({ id: x.id, nombre: x.nombre }));
   const nSede = new Map(porSede.map((x) => [x.id, x.n]));
   const total = porSede.reduce((a, x) => a + x.n, 0);
-  const url = (id: number) => `/operativo/capacitaciones/participantes?${new URLSearchParams({ ...(id ? { sede: String(id) } : {}), ...(q ? { q } : {}) })}`;
-
+  const urlPrograma = (id: number) => `/operativo/capacitaciones/participantes?${new URLSearchParams({ ...(id ? { programa: String(id) } : {}), ...(q ? { q } : {}) })}`;
   return (
     <>
       <Encabezado antetitulo="Operativo · Capacitaciones" titulo="Beneficiarios" />
@@ -69,27 +72,27 @@ export default async function Participantes({ searchParams }: PageProps<"/operat
           { name: "dni", label: "DNI", required: true, inputMode: "numeric" },
           { name: "nombres", label: "Nombres", required: true },
           { name: "apellidos", label: "Apellidos", required: true },
-          { name: "sedeId", label: "Sede", opciones: [{ valor: "", texto: "Sin sede" }, ...listaSedes.map((x) => ({ valor: String(x.id), texto: x.nombre }))] },
+          { name: "sedeId", label: "Sede", opciones: [{ valor: "", texto: "Sin sede" }, ...listaSedes.map((x) => ({ valor: String(x.id), texto: x.nombre, grupo: programas.find((p) => p.id === x.estructuraId)?.nombre ?? "Sin programa" }))] },
           { name: "turno", label: "Turno", opciones: Object.entries(TURNO).map(([valor, texto]) => ({ valor, texto })) },
           { name: "email", label: "Correo", type: "email" },
           { name: "telefono", label: "Teléfono", inputMode: "tel" },
         ]}
       />
       </SiPuede>
-      <nav aria-label="Beneficiarios por sede" className="flex flex-wrap items-center gap-2">
-        {[{ id: 0, nombre: "Todas", n: total }, ...listaSedes.filter((x) => nSede.get(x.id)).map((x) => ({ id: x.id, nombre: x.nombre, n: nSede.get(x.id)! }))].map((x) => (
-          <Link
-            key={x.id}
-            href={url(x.id)}
-            aria-current={sede === x.id ? "page" : undefined}
-            className={`rounded-full border px-3 py-1.5 text-[13px] font-semibold ${sede === x.id ? "border-marino bg-marino text-white" : "border-borde-fuerte bg-white text-marino"}`}
-          >
-            {x.nombre} <span className={`ml-1 rounded-full px-1.5 ${sede === x.id ? "bg-white/20" : "bg-[#eef1f5] text-texto-2"}`}>{x.n}</span>
-          </Link>
+      <nav aria-label="Beneficiarios por programa" className="flex flex-wrap items-center gap-2">
+        {[{ id: 0, nombre: "Todos" }, ...programas].map((x) => (
+          <Link key={x.id} href={urlPrograma(x.id)} aria-current={programa === x.id ? "page" : undefined} className={`rounded-full border px-3 py-1.5 text-[13px] font-semibold ${programa === x.id ? "border-marino bg-marino text-white" : "border-borde-fuerte bg-white text-marino"}`}>{x.nombre}</Link>
         ))}
       </nav>
       <form className="flex items-end gap-3">
-        {sede > 0 && <input type="hidden" name="sede" value={sede} />}
+        {programa > 0 && <input type="hidden" name="programa" value={programa} />}
+        <div className="w-72">
+          <label htmlFor="sede" className="etiqueta">Buscar por sede</label>
+          <select id="sede" name="sede" defaultValue={sede || ""} className="campo">
+            <option value="">Todas las sedes ({programa ? listaSedes.filter((x) => x.estructuraId === programa).reduce((n, x) => n + (nSede.get(x.id) ?? 0), 0) : total})</option>
+            {listaSedes.filter((x) => (!programa || x.estructuraId === programa) && nSede.get(x.id)).map((x) => <option key={x.id} value={x.id}>{x.nombre} ({nSede.get(x.id)})</option>)}
+          </select>
+        </div>
         <div className="w-80">
           <label htmlFor="q" className="etiqueta">Buscar por nombre o DNI</label>
           <input id="q" name="q" defaultValue={q} className="campo" />

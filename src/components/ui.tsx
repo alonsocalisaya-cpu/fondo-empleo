@@ -119,12 +119,7 @@ export const TABS_PRE = [
   { href: "/operativo/post-capacitacion", label: "Resultados de asistencia" },
 ];
 
-/** Línea "+ Sesión B + Sesión C" para programaciones con sesiones combinadas. */
-export function Combinadas({ nombres }: { nombres: string[] }) {
-  if (!nombres.length) return null;
-  return (
-    <span className="text-xs font-semibold text-acento-oscuro">
-      <span className="sr-only">Sesiones combinadas: </span>+ {nombres.join(" + ")}
-    </span>
-  );
+/** Título legible de una programación que reúne varias sesiones en un mismo horario. */
+export function TituloSesion({ nombre, combinadas }: { nombre: string; combinadas: string[] }) {
+  return <>{nombre}{combinadas.length ? ` + ${combinadas.join(" + ")}` : ""}</>;
 }

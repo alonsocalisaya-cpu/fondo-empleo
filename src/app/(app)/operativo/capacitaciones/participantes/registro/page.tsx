@@ -8,6 +8,7 @@ import { listarProgramaciones } from "@/lib/consultas";
 import { TURNO_LABEL, hoyISO } from "@/lib/fechas";
 import { examenDe, examenes } from "@/lib/preparacion";
 import { Encabezado, Pestanas, TABS_PRE, Vacio } from "@/components/ui";
+import CampoFecha from "@/components/CampoFecha";
 import BotonImprimir from "./BotonImprimir";
 
 export const metadata = { title: "Registro de asistencia y notas" };
@@ -126,11 +127,11 @@ export default async function RegistroAuxiliar({ searchParams }: PageProps<"/ope
         </div>
         <div>
           <label htmlFor="r-desde" className="etiqueta">Desde</label>
-          <input id="r-desde" type="date" name="desde" defaultValue={desde} className="campo" />
+          <CampoFecha id="r-desde" name="desde" value={desde} />
         </div>
         <div>
           <label htmlFor="r-hasta" className="etiqueta">Hasta</label>
-          <input id="r-hasta" type="date" name="hasta" defaultValue={hasta} className="campo" />
+          <CampoFecha id="r-hasta" name="hasta" value={hasta} />
         </div>
         <button className="btn-oscuro">Ver registro</button>
       </form>

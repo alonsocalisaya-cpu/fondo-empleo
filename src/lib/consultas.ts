@@ -62,7 +62,7 @@ export async function asistenciaPorSede(desde: string, hasta: string) {
 }
 
 export async function opcionesFiltros() {
-  const [s, c, comp, asis] = await Promise.all([
+  const [s, c, comp, asis, est] = await Promise.all([
     db.query.sedes.findMany({ where: (t, { eq }) => eq(t.activa, true), orderBy: (t) => t.nombre }),
     db.query.capacitadores.findMany({
       where: (t, { eq }) => eq(t.activo, true),
@@ -73,6 +73,7 @@ export async function opcionesFiltros() {
       where: (t, { and, eq }) => and(eq(t.activo, true), eq(t.rol, "asistente")),
       orderBy: (t) => [t.nombres, t.apellidos],
     }),
+    db.query.estructuras.findMany({orderBy:(t,{asc})=>[asc(t.orden),asc(t.id)]}),
   ]);
-  return { sedes: s, capacitadores: c, componentes: comp, asistentes: asis };
+  return { sedes: s, capacitadores: c, componentes: comp, asistentes: asis, estructuras: est };
 }

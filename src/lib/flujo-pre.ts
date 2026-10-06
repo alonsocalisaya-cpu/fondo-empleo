@@ -82,7 +82,7 @@ export const PASOS: DefPaso[] = [
     corto: "Local",
     titulo: "Confirmar el local y la sesión con la sede",
     descripcion: "Contactar a la sede y confirmar que el local y la sesión se mantienen. Si no se confirma, la sesión se reprograma.",
-    etapa: "pre", fase: 1, carril: "general", rol: "jefe_comercial", rolesAlternos: ["jefe_proyecto"], requiere: [],
+    etapa: "pre", fase: 1, carril: "general", rol: "jefe_proyecto", requiere: [],
   },
   // ── Fase 2 ───────────────────────────────────────────────
   // (Antes «Asignar personal» era una actividad aparte; el personal ya se asigna al programar la sesión,
@@ -91,7 +91,7 @@ export const PASOS: DefPaso[] = [
     clave: "comunicar",
     corto: "Personal",
     titulo: "Validar el personal y comunicarle la sesión",
-    descripcion: `Confirma el capacitador y el asistente asignados al programar la sesión (puedes cambiarlos por otros disponibles) y se les comunica por el sistema: les aparece en sus notificaciones y confirman con «Enterado». Plazo: ${DIAS_ANTICIPACION_COMUNICACION} días antes de la sesión.`,
+    descripcion: "Selecciona el capacitador y el asistente disponibles para esta sesión.",
     etapa: "pre", fase: 2, carril: "general", rol: "jefe_proyecto", requiere: ["confirmar_sede"],
     nota: "Contemplar un parámetro de tiempo para esta actividad",
   },

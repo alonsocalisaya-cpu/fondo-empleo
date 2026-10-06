@@ -7,7 +7,8 @@ import { listarProgramaciones, opcionesFiltros, ruta, combinadas } from "@/lib/c
 import { contextosDe } from "@/lib/preparacion";
 import { DIAS_ANTICIPACION_COMUNICACION, ETAPAS, ROLES, etapaActual, resumenFlujo, type RolFlujo } from "@/lib/flujo-pre";
 import { fechaCorta, hoyISO, hora, inicioSemana, sumarDias, TURNO_LABEL } from "@/lib/fechas";
-import { Encabezado, Kpi, Pestanas, TABS_PRE, Vacio, nombreCompleto, Combinadas } from "@/components/ui";
+import { Encabezado, Kpi, Pestanas, TABS_PRE, Vacio, nombreCompleto, TituloSesion } from "@/components/ui";
+import CampoFecha from "@/components/CampoFecha";
 import { BarraAvance, ChipRol } from "@/components/flujo";
 import LineaProceso from "@/components/LineaProceso";
 import { exigirUsuario } from "@/lib/auth";
@@ -33,7 +34,7 @@ export default async function Capacitaciones({ searchParams }: PageProps<"/opera
   const estado = ["pre", "post", "cerrada", "reprogramar"].includes(String(sp.estado)) ? String(sp.estado) : "";
   const texto = typeof sp.q === "string" ? sp.q.trim().toLowerCase() : "";
 
-  const [lista, { sedes: listaSedes, capacitadores: listaCap }] = await Promise.all([
+  const [lista, { sedes: listaSedes, capacitadores: listaCap, estructuras: listaEstructuras }] = await Promise.all([
     listarProgramaciones(
       and(
         desde ? gte(programaciones.fecha, desde) : undefined,
@@ -109,17 +110,20 @@ export default async function Capacitaciones({ searchParams }: PageProps<"/opera
         {rol && <input type="hidden" name="rol" value={rol} />}
         <div>
           <label htmlFor="f-desde" className="etiqueta">Desde</label>
-          <input id="f-desde" type="date" name="desde" defaultValue={desde ?? ""} className="campo" />
+          <CampoFecha id="f-desde" name="desde" value={desde ?? ""} />
         </div>
         <div>
           <label htmlFor="f-hasta" className="etiqueta">Hasta</label>
-          <input id="f-hasta" type="date" name="hasta" defaultValue={hasta ?? ""} className="campo" />
+          <CampoFecha id="f-hasta" name="hasta" value={hasta ?? ""} />
         </div>
         <div className="w-full sm:w-44">
           <label htmlFor="f-sede" className="etiqueta">Sede</label>
           <select id="f-sede" name="sede" defaultValue={sede || ""} className="campo">
             <option value="">Todas</option>
-            {listaSedes.map((x) => <option key={x.id} value={x.id}>{x.nombre}</option>)}
+            {listaEstructuras.map((region) => {
+              const opciones = listaSedes.filter((x) => x.estructuraId === region.id);
+              return opciones.length ? <optgroup key={region.id} label={region.nombre}>{opciones.map((x) => <option key={x.id} value={x.id}>{x.nombre}</option>)}</optgroup> : null;
+            })}
           </select>
         </div>
         {!soloMias && <div className="w-full sm:w-44">
@@ -216,10 +220,9 @@ export default async function Capacitaciones({ searchParams }: PageProps<"/opera
                     )}
                   </div>
                   <div className="flex flex-col gap-0.5">
-                    <span className="font-medium">{p.sesion.nombre}</span>
+                    <span className="font-medium"><TituloSesion nombre={p.sesion.nombre} combinadas={combinadas(p)} /></span>
                     <span className="text-[13px] text-texto-2">{ruta(p)}</span>
                     {p.observacion && <span className="text-xs italic text-[#92400e]">{p.observacion}</span>}
-                    <Combinadas nombres={combinadas(p)} />
                   </div>
                   <div className="flex flex-col gap-1">
                     <span className="text-[11px] font-semibold uppercase tracking-wide text-texto-2">{ETAPAS[etapa]}</span>

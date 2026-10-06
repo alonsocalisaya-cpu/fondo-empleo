@@ -8,8 +8,8 @@ import { cargarExpediente } from "@/lib/preparacion";
 import { exigirUsuario, puedeVerSesion, type Usuario } from "@/lib/auth";
 import { puede, puedeEditarFicha, puedeRegistrarPaso } from "@/lib/permisos";
 import { ruta, combinadas } from "@/lib/consultas";
-import { ETAPAS, FASES, PASO, ROLES, etapaActual, resumenFlujo, DIAS_ANTICIPACION_COMUNICACION, type Etapa, type Vista } from "@/lib/flujo-pre";
-import { fechaCorta, fechaLarga, hora, sumarDias, hoyISO, TURNO_LABEL } from "@/lib/fechas";
+import { ETAPAS, FASES, PASO, ROLES, etapaActual, resumenFlujo, type Etapa, type Vista } from "@/lib/flujo-pre";
+import { fechaCorta, fechaLarga, hora, TURNO_LABEL } from "@/lib/fechas";
 import { ChipEstado, Encabezado, nombreCompleto } from "@/components/ui";
 import { BarraAvance, ChipRol } from "@/components/flujo";
 import LineaProceso from "@/components/LineaProceso";
@@ -231,15 +231,10 @@ function Campos({ clave, e }: { clave: string; e: Exp }) {
         </>
       );
     case "comunicar": {
-      const limite = sumarDias(e.p.fecha, -DIAS_ANTICIPACION_COMUNICACION);
-      const vencido = hoyISO() > limite;
       const sin = e.destinatarios.filter((d) => !d.conAcceso);
       return (
         <>
           <CamposPersonal e={e} />
-          <p className={`text-[13px] ${vencido ? "font-semibold text-[#991b1b]" : "text-texto-2"}`}>
-            Plazo: hasta el {fechaCorta(limite)} ({DIAS_ANTICIPACION_COMUNICACION} días antes).{vencido && " ⚠ Plazo vencido."}
-          </p>
           <div className="flex flex-wrap gap-1.5 text-xs">
             <span className="self-center text-texto-2">Asignados al programar:</span>
             {e.destinatarios.map((d) => (

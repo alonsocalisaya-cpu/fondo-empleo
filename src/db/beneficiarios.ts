@@ -3,7 +3,7 @@
  * crea/actualiza cada participante (por DNI) con su sede y turno, y lo inscribe en las sesiones
  * programadas que le corresponden. Es seguro ejecutarlo varias veces.
  */
-import { eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { db } from "./index";
 import * as s from "./schema";
 import datos from "../../datos/beneficiarios.json";
@@ -19,7 +19,9 @@ export async function yaImportados() {
 }
 
 export async function importarBeneficiarios() {
-  const sedes = await db.select().from(s.sedes);
+  const [estructura] = await db.select().from(s.estructuras).where(eq(s.estructuras.nombre, "Arequipa"));
+  if (!estructura) throw new Error("Falta la estructura Arequipa.");
+  const sedes = await db.select().from(s.sedes).where(eq(s.sedes.estructuraId, estructura.id));
   const idSede = new Map(sedes.map((x) => [x.nombre.toLowerCase(), x.id]));
   const sinSede = new Set<string>();
   let nuevos = 0;
@@ -28,8 +30,8 @@ export async function importarBeneficiarios() {
     let sedeId = idSede.get(b.sede.toLowerCase());
     if (!sedeId) {
       sinSede.add(b.sede);
-      const [n] = await db.insert(s.sedes).values({ nombre: b.sede }).onConflictDoNothing().returning();
-      sedeId = n?.id ?? (await db.select().from(s.sedes).where(eq(s.sedes.nombre, b.sede)))[0].id;
+      const [n] = await db.insert(s.sedes).values({ nombre: b.sede, estructuraId: estructura.id }).onConflictDoNothing().returning();
+      sedeId = n?.id ?? (await db.select().from(s.sedes).where(and(eq(s.sedes.nombre, b.sede), eq(s.sedes.estructuraId, estructura.id))))[0].id;
       idSede.set(b.sede.toLowerCase(), sedeId);
     }
     const [r] = await db

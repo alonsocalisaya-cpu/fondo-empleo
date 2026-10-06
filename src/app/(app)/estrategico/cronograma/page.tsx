@@ -3,10 +3,11 @@ import Link from "next/link";
 import { connection } from "next/server";
 import { and, eq, gte, inArray, lte, ne, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { actividades, inscripciones, modulos, programaciones, sesiones, type Turno } from "@/db/schema";
+import { actividades, inscripciones, modulos, componentes, programaciones, sesiones, type Turno } from "@/db/schema";
 import { listarProgramaciones, opcionesFiltros, ruta, combinadas, type ProgramacionConRuta } from "@/lib/consultas";
 import { fechaCorta, hoyISO, hora, inicioSemana, sumarDias, TURNO_LABEL } from "@/lib/fechas";
-import { ChipEstado, Encabezado, Pestanas, TABS_CRONOGRAMA, Vacio, nombreCompleto, Combinadas } from "@/components/ui";
+import { ChipEstado, Encabezado, Pestanas, TABS_CRONOGRAMA, Vacio, nombreCompleto, TituloSesion } from "@/components/ui";
+import CampoFecha from "@/components/CampoFecha";
 
 export const metadata = { title: "Cronograma de capacitaciones" };
 
@@ -62,10 +63,14 @@ export default async function Programacion({ searchParams }: PageProps<"/estrate
   const hasta = esFecha(str(sp.hasta)) ? str(sp.hasta) : sumarDias(desde, 6);
   const semanaActual = inicioSemana(hoyISO());
   const enSemanaActual = desde === semanaActual && hasta === sumarDias(semanaActual, 6);
-  const sede = Number(str(sp.sede)) || 0;
+  const opciones = await opcionesFiltros();
+  const programa = Number(str(sp.programa)) || 0;
+  const sedePedida = Number(str(sp.sede)) || 0;
+  const sede = programa && !opciones.sedes.some(s=>s.id===sedePedida && s.estructuraId===programa) ? 0 : sedePedida;
   const cap = Number(str(sp.capacitador)) || 0;
   const asi = Number(str(sp.asistente)) || 0;
-  const comp = Number(str(sp.componente)) || 0;
+  const compPedido = Number(str(sp.componente)) || 0;
+  const comp = programa && !opciones.componentes.some(c=>c.id===compPedido && c.estructuraId===programa) ? 0 : compPedido;
   const turno = str(sp.turno) as Turno | "";
 
   const filtro = and(
@@ -75,6 +80,11 @@ export default async function Programacion({ searchParams }: PageProps<"/estrate
     cap ? eq(programaciones.capacitadorId, cap) : undefined,
     asi ? eq(programaciones.asistenteId, asi) : undefined,
     turno && turno in TURNO_LABEL ? eq(programaciones.turno, turno) : undefined,
+    programa ? inArray(programaciones.sesionId, db.select({id:sesiones.id}).from(sesiones)
+      .innerJoin(modulos,eq(sesiones.moduloId,modulos.id))
+      .innerJoin(actividades,eq(modulos.actividadId,actividades.id))
+      .innerJoin(componentes,eq(actividades.componenteId,componentes.id))
+      .where(eq(componentes.estructuraId,programa))) : undefined,
     comp
       ? inArray(
           programaciones.sesionId,
@@ -88,10 +98,9 @@ export default async function Programacion({ searchParams }: PageProps<"/estrate
       : undefined,
   );
 
-  const [filas, todasLasSesiones, opciones] = await Promise.all([
+  const [filas, todasLasSesiones] = await Promise.all([
     listarProgramaciones(filtro),
     listarProgramaciones(ne(programaciones.estado, "cancelada")),
-    opcionesFiltros(),
   ]);
   const cruces = crucesDePersonal(todasLasSesiones);
   const sesionesConCruce = todasLasSesiones.filter((f) => cruces.has(f.id));
@@ -107,7 +116,7 @@ export default async function Programacion({ searchParams }: PageProps<"/estrate
   const inscritos = new Map(conteo.map((c) => [c.id, c.n]));
 
   const q = (cambios: Record<string, string>) => {
-    const p = new URLSearchParams({ desde, hasta, ...(sede && { sede: String(sede) }), ...(cap && { capacitador: String(cap) }), ...(asi && { asistente: String(asi) }), ...(comp && { componente: String(comp) }), ...(turno && { turno }), ...cambios });
+    const p = new URLSearchParams({ desde, hasta, ...(programa && { programa: String(programa) }), ...(sede && { sede: String(sede) }), ...(cap && { capacitador: String(cap) }), ...(asi && { asistente: String(asi) }), ...(comp && { componente: String(comp) }), ...(turno && { turno }), ...cambios });
     return `/estrategico/cronograma?${p}`;
   };
 
@@ -144,20 +153,24 @@ export default async function Programacion({ searchParams }: PageProps<"/estrate
         </p>
       )}
 
-      <form key={`${desde}:${hasta}`} className="card grid grid-cols-2 items-end gap-3.5 px-5 py-4 md:grid-cols-4 xl:grid-cols-[repeat(7,minmax(0,1fr))_auto]">
+      <form key={`${desde}:${hasta}`} className="card grid grid-cols-2 items-end gap-3.5 px-5 py-4 md:grid-cols-4 xl:grid-cols-[repeat(4,minmax(0,1fr))_auto]">
         <div>
           <label htmlFor="f-desde" className="etiqueta">Desde</label>
-          <input id="f-desde" type="date" name="desde" defaultValue={desde} className="campo" />
+          <CampoFecha id="f-desde" name="desde" value={desde} />
         </div>
         <div>
           <label htmlFor="f-hasta" className="etiqueta">Hasta</label>
-          <input id="f-hasta" type="date" name="hasta" defaultValue={hasta} className="campo" />
+          <CampoFecha id="f-hasta" name="hasta" value={hasta} />
+        </div>
+        <div>
+          <label htmlFor="f-programa" className="etiqueta">Programa</label>
+          <select id="f-programa" name="programa" defaultValue={programa || ""} className="campo"><option value="">Todos</option>{opciones.estructuras.map(p=><option key={p.id} value={p.id}>{p.nombre}</option>)}</select>
         </div>
         <div>
           <label htmlFor="f-sede" className="etiqueta">Sede</label>
           <select id="f-sede" name="sede" defaultValue={sede || ""} className="campo">
             <option value="">Todas</option>
-            {opciones.sedes.map((s) => <option key={s.id} value={s.id}>{s.nombre}</option>)}
+            {opciones.sedes.filter(s=>!programa || s.estructuraId===programa).map((s) => <option key={s.id} value={s.id}>{s.nombre}</option>)}
           </select>
         </div>
         <div>
@@ -185,7 +198,7 @@ export default async function Programacion({ searchParams }: PageProps<"/estrate
           <label htmlFor="f-comp" className="etiqueta">Componente</label>
           <select id="f-comp" name="componente" defaultValue={comp || ""} className="campo">
             <option value="">Todos</option>
-            {opciones.componentes.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+            {opciones.componentes.filter(c=>!programa || c.estructuraId===programa).map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
           </select>
         </div>
         <div className="flex gap-2">
@@ -223,10 +236,9 @@ export default async function Programacion({ searchParams }: PageProps<"/estrate
                   </td>
                   <td className="td">
                     <div className="flex flex-col">
-                      <span className="font-medium">{f.sesion.nombre}</span>
+                      <span className="font-medium"><TituloSesion nombre={f.sesion.nombre} combinadas={combinadas(f)} /></span>
                       <span className="text-xs text-texto-2">{ruta(f)}</span>
                       {f.observacion && <span className="text-xs italic text-[#92400e]">{f.observacion}</span>}
-                      <Combinadas nombres={combinadas(f)} />
                     </div>
                   </td>
                   <td className="td">

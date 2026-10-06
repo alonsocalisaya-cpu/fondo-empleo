@@ -9,7 +9,7 @@ export type Campo = {
   required?: boolean;
   type?: string;
   inputMode?: "numeric" | "email" | "tel";
-  opciones?: { valor: string; texto: string }[]; // si se indica, el campo es un desplegable
+  opciones?: { valor: string; texto: string; grupo?: string }[]; // si se indica, el campo es un desplegable
   accept?: string; // para type="file"
   multiple?: boolean; // para type="file"
   ayuda?: string; // texto pequeño bajo el campo
@@ -50,7 +50,12 @@ export default function FormAlta({
             </label>
             {c.opciones ? (
               <select id={`alta-${c.name}`} name={c.name} required={c.required} className="campo">
-                {c.opciones.map((o) => <option key={o.valor} value={o.valor}>{o.texto}</option>)}
+                {[...new Set(c.opciones.map((o) => o.grupo ?? ""))].map((grupo) => {
+                  const opciones = c.opciones!.filter((o) => (o.grupo ?? "") === grupo);
+                  return grupo
+                    ? <optgroup key={grupo} label={grupo}>{opciones.map((o) => <option key={o.valor} value={o.valor}>{o.texto}</option>)}</optgroup>
+                    : opciones.map((o) => <option key={o.valor} value={o.valor}>{o.texto}</option>);
+                })}
               </select>
             ) : (
               <input id={`alta-${c.name}`} name={c.name} required={c.required} type={c.type ?? "text"} inputMode={c.inputMode} accept={c.accept} multiple={c.multiple} className="campo" />

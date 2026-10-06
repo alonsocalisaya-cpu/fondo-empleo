@@ -1,7 +1,7 @@
 "use server";
 
 import { exigir, permitir } from "@/lib/auth";
-import { and, eq, gt, isNotNull, lt, ne } from "drizzle-orm";
+import { and, eq, inArray, isNotNull } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
@@ -9,7 +9,7 @@ import { validarDisponibilidad } from "@/lib/disponibilidad";
 import { moverStock } from "@/lib/stock";
 import { borrarArchivo } from "@/lib/archivos";
 import { inscribirBeneficiarios } from "@/db/inscribir";
-import { documentos, fichaItems, preparaciones, programacionSesiones, programaciones, type EstadoProg } from "@/db/schema";
+import { documentos, fichaItems, preparaciones, programacionSesiones, programaciones, sedes, sesiones, modulos, actividades, componentes, type EstadoProg } from "@/db/schema";
 import { turnoDesdeHora } from "@/lib/fechas";
 
 export type EstadoForm = { error?: string } | undefined;
@@ -37,6 +37,15 @@ export async function guardarProgramacion(_prev: EstadoForm, form: FormData): Pr
     return { error: "Completa sesión, sede, fecha y horario." };
   }
   if (horaFin <= horaInicio) return { error: "La hora de fin debe ser posterior a la de inicio." };
+
+  const [sede] = await db.select().from(sedes).where(eq(sedes.id,sedeId));
+  const elegidas = [...new Set([sesionId,...form.getAll("sesionExtra").map(Number).filter(Boolean)])];
+  const rutas = await db.select({id:sesiones.id, estructuraId:componentes.estructuraId})
+    .from(sesiones).innerJoin(modulos,eq(sesiones.moduloId,modulos.id))
+    .innerJoin(actividades,eq(modulos.actividadId,actividades.id))
+    .innerJoin(componentes,eq(actividades.componenteId,componentes.id))
+    .where(inArray(sesiones.id,elegidas));
+  if (!sede || rutas.length !== elegidas.length || rutas.some(r=>r.estructuraId!==sede.estructuraId)) return {error:"La sede y todas las sesiones deben pertenecer al mismo programa."};
 
   // Validación: ni el consultor ni el asistente pueden tener otra sesión que se cruce,
   // en ninguno de sus roles (p. ej. capacitador aquí y asistente en otra sede a la misma hora).

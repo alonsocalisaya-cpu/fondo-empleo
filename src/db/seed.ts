@@ -14,14 +14,15 @@ async function main() {
   await db.execute(sql`TRUNCATE equipos, documentos, ficha_items, preparaciones, personal, acciones_correctivas, asistencias, inscripciones, programaciones, sesiones, modulos,
     actividades, componentes, participantes, capacitadores, sedes RESTART IDENTITY CASCADE`);
 
+  const [estructura] = await db.insert(s.estructuras).values({nombre: "Arequipa"}).onConflictDoUpdate({target: s.estructuras.nombre, set: {nombre: "Arequipa"}}).returning();
   console.log("Sedes y capacitadores…");
   const sedes = await db
     .insert(s.sedes)
     .values([
-      { nombre: "Sede Norte", distrito: "Cayma", contacto: "Rosa Llerena (administración)", telefono: "954 000 001" },
-      { nombre: "Sede Centro", distrito: "Cercado de Arequipa", contacto: "Jorge Díaz (recepción)", telefono: "954 000 002" },
-      { nombre: "Sede Sur", distrito: "Paucarpata", contacto: "Elena Cáceres", telefono: "954 000 003" },
-      { nombre: "Sede Camaná", distrito: "Camaná", fueraDeArequipa: true, contacto: "Luis Vera", telefono: "954 000 004" },
+      { estructuraId: estructura.id, nombre: "Sede Norte", distrito: "Cayma", contacto: "Rosa Llerena (administración)", telefono: "954 000 001" },
+      { estructuraId: estructura.id, nombre: "Sede Centro", distrito: "Cercado de Arequipa", contacto: "Jorge Díaz (recepción)", telefono: "954 000 002" },
+      { estructuraId: estructura.id, nombre: "Sede Sur", distrito: "Paucarpata", contacto: "Elena Cáceres", telefono: "954 000 003" },
+      { estructuraId: estructura.id, nombre: "Sede Camaná", distrito: "Camaná", fueraDeArequipa: true, contacto: "Luis Vera", telefono: "954 000 004" },
     ])
     .returning();
 

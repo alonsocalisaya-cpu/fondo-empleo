@@ -27,6 +27,7 @@ export type Modulo =
   | "beneficiarios"
   | "rrhh"
   | "logistica"
+  | "sedes"
   | "mantenimiento"
   | "documental"
   | "usuarios";
@@ -43,7 +44,8 @@ export const MODULOS: Record<Modulo, { nombre: string; rutas: string[] }> = {
   beneficiarios: { nombre: "Beneficiarios", rutas: ["/operativo/capacitaciones/participantes"] },
   capacitaciones: { nombre: "Capacitaciones (pre y post, asistencia)", rutas: ["/operativo"] },
   rrhh: { nombre: "Personal (datos del equipo)", rutas: ["/personal"] },
-  logistica: { nombre: "Logística (inventario y sedes)", rutas: ["/soporte/logistica"] },
+  logistica: { nombre: "Logística (inventario)", rutas: ["/soporte/logistica"] },
+  sedes: { nombre: "Sedes y regiones", rutas: ["/soporte/sedes"] },
   mantenimiento: { nombre: "Mantenimiento (equipos)", rutas: ["/soporte/mantenimiento"] },
   documental: { nombre: "Gestión documental", rutas: ["/soporte/gestion-documental"] },
   usuarios: { nombre: "Accesos, roles y permisos", rutas: ["/personal/permisos"] },
@@ -57,7 +59,7 @@ export const PERMISOS_BASE: Record<RolUsuario, Partial<Record<Modulo, Nivel>>> =
   admin: Object.fromEntries((Object.keys(MODULOS) as Modulo[]).map((m) => [m, E])),
   jefe_proyecto: {
     inicio: V, calendario: V, cronograma: E, consultores: E, indicadores: V, acciones: E,
-    capacitaciones: E, beneficiarios: E, rrhh: V, logistica: E, mantenimiento: E, documental: E,
+    capacitaciones: E, beneficiarios: E, rrhh: V, logistica: E, sedes: E, mantenimiento: E, documental: E,
   },
   jefe_comercial: { inicio: V, calendario: V, cronograma: V, indicadores: V, capacitaciones: E, logistica: V },
   asistente: {

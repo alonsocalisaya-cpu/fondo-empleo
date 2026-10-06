@@ -23,7 +23,7 @@ type FilaJson = {
   estado: s.EstadoProg;
   obs: string | null;
 };
-type Datos = { sedes: { nombre: string; direccion: string; distrito: string; fueraDeArequipa: boolean }[]; programaciones: FilaJson[] };
+type Datos = { sedes: { nombre: string; direccion: string; distrito: string; fueraDeArequipa: boolean; grupo?: string; horaInicio?: string; horaFin?: string }[]; programaciones: FilaJson[] };
 export const CRONOGRAMA = cronograma as Datos;
 
 export async function yaImportado(db = dbPorDefecto) {
@@ -37,14 +37,18 @@ export async function yaImportado(db = dbPorDefecto) {
 export async function importarCronograma(db = dbPorDefecto) {
   const res = { sedes: 0, consultoresNuevos: 0, asistentesNuevos: 0, programaciones: 0, sinSesion: [] as string[] };
 
+  const [estructura] = await db.select().from(s.estructuras).where(eq(s.estructuras.nombre, "Arequipa"));
+  if (!estructura) throw new Error("Falta la estructura Arequipa.");
   // 1) Sedes
   const sedeId = new Map<string, number>();
   for (const x of CRONOGRAMA.sedes) {
+    const { horaInicio, horaFin, ...datosSede } = x;
     const [fila] = await db
       .insert(s.sedes)
-      .values(x)
-      .onConflictDoUpdate({ target: s.sedes.nombre, set: { direccion: x.direccion, distrito: x.distrito, fueraDeArequipa: x.fueraDeArequipa } })
+      .values({ ...datosSede, estructuraId: estructura.id })
+      .onConflictDoUpdate({ target: [s.sedes.estructuraId, s.sedes.nombre], set: { direccion: x.direccion, distrito: x.distrito, fueraDeArequipa: x.fueraDeArequipa, ...(x.grupo ? {grupo:x.grupo} : {}) } })
       .returning();
+    if (horaInicio && horaFin) await db.insert(s.sedeHorarios).values({sedeId:fila.id,nombre:"Principal",horaInicio,horaFin}).onConflictDoNothing();
     sedeId.set(x.nombre, fila.id);
     res.sedes++;
   }

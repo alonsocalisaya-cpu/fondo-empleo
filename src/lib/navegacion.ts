@@ -28,6 +28,7 @@ export const AREAS: Area[] = [
     id: "soporte",
     label: "Soporte",
     bloques: [
+      { href: "/soporte/sedes", label: "Sedes" },
       { href: "/soporte/logistica", label: "Logística" },
       { href: "/soporte/mantenimiento", label: "Mantenimiento" },
       { href: "/soporte/gestion-documental", label: "Gestión documental" },

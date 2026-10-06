@@ -162,6 +162,20 @@
       "when": 1790790000000,
       "tag": "0022_liquidaciones",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1791300000000,
+      "tag": "0023_sedes_programa_horarios",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1791300001000,
+      "tag": "0024_sedes_un_horario",
+      "breakpoints": true
     }
   ]
 }

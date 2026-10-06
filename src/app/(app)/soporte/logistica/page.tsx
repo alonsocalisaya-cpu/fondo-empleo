@@ -3,14 +3,13 @@ import { connection } from "next/server";
 import { desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { insumos, movimientosInsumo, type CategoriaInsumo } from "@/db/schema";
-import { Encabezado, Kpi, Pestanas, Vacio } from "@/components/ui";
+import { Encabezado, Kpi, Vacio } from "@/components/ui";
 import FormAlta from "@/components/FormAlta";
 import { actualizarMinimo, alternarInsumo, crearInsumo } from "@/lib/acciones-inventario";
 import { CATEGORIAS_INSUMO } from "@/lib/inventario";
 import FormMovimiento from "./FormMovimiento";
 import BotonEliminar from "@/components/BotonEliminar";
 import { eliminarInsumo } from "@/lib/acciones-maestros";
-import { TABS_LOGISTICA } from "./tabs";
 
 export const metadata = { title: "Logística · Inventario" };
 
@@ -41,7 +40,6 @@ export default async function Logistica() {
   return (
     <>
       <Encabezado antetitulo="Soporte · Logística" titulo="Inventario de materiales" />
-      <Pestanas items={TABS_LOGISTICA} actual="/soporte/logistica" />
 
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Kpi etiqueta="Ítems en inventario" valor={activos.length} />

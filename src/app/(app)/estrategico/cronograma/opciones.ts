@@ -5,7 +5,7 @@ import { opcionesFiltros } from "@/lib/consultas";
 
 /** Datos para los desplegables del formulario de programación. */
 export async function opcionesFormulario() {
-  const [{ sedes, capacitadores, asistentes }, estructuras, arbol] = await Promise.all([
+  const [{ sedes, capacitadores, asistentes }, estructuras, arbol, horarios] = await Promise.all([
     opcionesFiltros(),
     db.query.estructuras.findMany({ orderBy: (t, { asc }) => [asc(t.orden), asc(t.id)] }),
     db.query.componentes.findMany({
@@ -22,6 +22,7 @@ export async function opcionesFormulario() {
         },
       },
     }),
+    db.query.sedeHorarios.findMany({orderBy:(t,{asc})=>[asc(t.horaInicio)]}),
   ]);
 
   const sesiones = arbol.flatMap((c) =>
@@ -37,7 +38,7 @@ export async function opcionesFormulario() {
   return {
     estructuras: estructuras.map((e) => ({ id: e.id, nombre: e.nombre })),
     sesiones,
-    sedes: sedes.map((s) => ({ id: s.id, nombre: s.nombre })),
+    sedes: sedes.map((s) => ({ id: s.id, nombre: s.nombre, estructuraId: s.estructuraId, horarios: horarios.filter(h=>h.sedeId===s.id).map(h=>({id:h.id,nombre:h.nombre,horaInicio:h.horaInicio.slice(0,5),horaFin:h.horaFin.slice(0,5)})) })),
     capacitadores: capacitadores.map((c) => ({ id: c.id, nombre: nombreCompleto(c) })),
     asistentes: asistentes.map((a) => ({ id: a.id, nombre: nombreCompleto(a) })),
   };

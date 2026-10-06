@@ -35,7 +35,7 @@ export default function FormProgramacion({
   valores: ValoresProgramacion;
   estructuras: Opcion[];
   sesiones: Grupo[];
-  sedes: Opcion[];
+  sedes: (Opcion & { estructuraId:number; horarios:{id:number;nombre:string;horaInicio:string;horaFin:string}[] })[];
   capacitadores: Opcion[];
   asistentes: Opcion[];
   estados: { valor: string; txt: string }[];
@@ -51,6 +51,11 @@ export default function FormProgramacion({
   );
   const [sesion, setSesion] = useState<string>(v.sesionId ? String(v.sesionId) : "");
   const grupos = sesiones.filter((g) => String(g.estructuraId) === estructura);
+  const [sede, setSede] = useState(v.sedeId ? String(v.sedeId) : "");
+  const [inicio, setInicio] = useState(v.horaInicio?.slice(0,5) ?? "");
+  const [fin, setFin] = useState(v.horaFin?.slice(0,5) ?? "");
+  const sedesPrograma = sedes.filter(s=>String(s.estructuraId)===estructura);
+
 
   // Enviamos con onSubmit (y no con action) para que React no limpie el formulario si hay un error.
   const enviar = (e: FormEvent<HTMLFormElement>) => {
@@ -79,6 +84,7 @@ export default function FormProgramacion({
             setEstructura(e.target.value);
             setSesion("");
             setExtras([]);
+            setSede(""); setInicio(""); setFin("");
           }}
           required
           className="campo"
@@ -139,9 +145,9 @@ export default function FormProgramacion({
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
           <label htmlFor="sedeId" className="etiqueta">Sede</label>
-          <select id="sedeId" name="sedeId" required defaultValue={v.sedeId ?? ""} className="campo">
-            <option value="" disabled>Elige una sede…</option>
-            {sedes.map((s) => <option key={s.id} value={s.id}>{s.nombre}</option>)}
+          <select id="sedeId" name="sedeId" required value={sede} disabled={!estructura} onChange={e=>{setSede(e.target.value);const h=sedesPrograma.find(s=>String(s.id)===e.target.value)?.horarios[0];setInicio(h?.horaInicio??"");setFin(h?.horaFin??"");}} className="campo">
+            <option value="" disabled>Elige una sede / turno…</option>
+            {sedesPrograma.map((s) => <option key={s.id} value={s.id}>{s.nombre}</option>)}
           </select>
         </div>
         <div>
@@ -157,11 +163,11 @@ export default function FormProgramacion({
         </div>
         <div>
           <label htmlFor="horaInicio" className="etiqueta">Hora de inicio</label>
-          <input id="horaInicio" name="horaInicio" type="time" required defaultValue={v.horaInicio} className="campo" />
+          <input id="horaInicio" name="horaInicio" type="time" required value={inicio} onChange={e=>{setInicio(e.target.value);}} className="campo" />
         </div>
         <div>
           <label htmlFor="horaFin" className="etiqueta">Hora de fin</label>
-          <input id="horaFin" name="horaFin" type="time" required defaultValue={v.horaFin} className="campo" />
+          <input id="horaFin" name="horaFin" type="time" required value={fin} onChange={e=>{setFin(e.target.value);}} className="campo" />
         </div>
       </div>
 

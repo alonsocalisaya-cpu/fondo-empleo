@@ -5,7 +5,7 @@ import { db } from "@/db";
 import { programaciones, participantes, sedes } from "@/db/schema";
 import { asistenciaPorSede, listarProgramaciones, ruta, combinadas } from "@/lib/consultas";
 import { fechaLarga, hoyISO, hora, inicioSemana, sumarDias, TURNO_LABEL } from "@/lib/fechas";
-import { ChipEstado, Encabezado, Kpi, Vacio, iniciales, nombreCompleto, Combinadas } from "@/components/ui";
+import { ChipEstado, Encabezado, Kpi, Vacio, iniciales, nombreCompleto, TituloSesion } from "@/components/ui";
 
 export default async function Inicio() {
   await connection();
@@ -88,10 +88,9 @@ export default async function Inicio() {
                   <span className="text-xs text-texto-2">{TURNO_LABEL[p.turno]}</span>
                 </div>
                 <div className="flex min-w-40 flex-1 flex-col gap-0.5">
-                  <span className="font-medium">{p.sesion.nombre}</span>
+                  <span className="font-medium"><TituloSesion nombre={p.sesion.nombre} combinadas={combinadas(p)} /></span>
                   <span className="text-[13px] text-texto-2">{ruta(p)}</span>
                     {p.observacion && <span className="text-xs italic text-[#92400e]">{p.observacion}</span>}
-                    <Combinadas nombres={combinadas(p)} />
                 </div>
                 <div className="flex w-36 flex-col">
                   <span className="text-sm">{p.sede.nombre}</span>

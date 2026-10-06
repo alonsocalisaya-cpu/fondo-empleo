@@ -1,5 +1,6 @@
 import {
   real,
+  check,
   pgTable,
   pgEnum,
   serial,
@@ -42,7 +43,9 @@ const creadoEn = () => timestamp("creado_en", { withTimezone: true }).defaultNow
 
 export const sedes = pgTable("sedes", {
   id: serial("id").primaryKey(),
-  nombre: varchar("nombre", { length: 120 }).notNull().unique(),
+  grupo: varchar("grupo", { length: 36 }).notNull().default(sql`gen_random_uuid()::text`),
+  estructuraId: integer("estructura_id").notNull().references(() => estructuras.id, { onDelete: "restrict" }),
+  nombre: varchar("nombre", { length: 120 }).notNull(),
   direccion: varchar("direccion", { length: 200 }),
   distrito: varchar("distrito", { length: 100 }),
   // Define qué viáticos corresponden: movilidad (dentro) o viaje (fuera de Arequipa)
@@ -51,7 +54,15 @@ export const sedes = pgTable("sedes", {
   telefono: varchar("telefono", { length: 30 }),
   activa: boolean("activa").default(true).notNull(),
   creadoEn: creadoEn(),
-});
+}, (t) => [uniqueIndex("sedes_estructura_nombre_unique").on(t.estructuraId, t.nombre)]);
+
+export const sedeHorarios = pgTable("sede_horarios", {
+  id: serial("id").primaryKey(),
+  sedeId: integer("sede_id").notNull().references(() => sedes.id, { onDelete: "cascade" }),
+  nombre: varchar("nombre", { length: 80 }).notNull(),
+  horaInicio: time("hora_inicio").notNull(),
+  horaFin: time("hora_fin").notNull(),
+}, (t) => [uniqueIndex("sede_horarios_sede_nombre_unique").on(t.sedeId, t.nombre), uniqueIndex("sede_horarios_un_horario_unique").on(t.sedeId), check("sede_horarios_orden", sql`${t.horaFin} > ${t.horaInicio}`)]);
 
 export const capacitadores = pgTable("capacitadores", {
   id: serial("id").primaryKey(),

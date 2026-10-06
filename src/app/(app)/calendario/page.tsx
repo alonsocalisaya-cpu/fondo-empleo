@@ -46,7 +46,7 @@ export default async function Calendario({ searchParams }: PageProps<"/calendari
   const mesAnterior = new Date(Date.UTC(y, m - 2, 1)).toISOString().slice(0, 7);
   const mesSiguiente = new Date(Date.UTC(y, m, 1)).toISOString().slice(0, 7);
 
-  const [lista, { sedes, capacitadores, componentes, asistentes }] = await Promise.all([
+  const [lista, { sedes, capacitadores, componentes, asistentes, estructuras }] = await Promise.all([
     listarProgramaciones(
       and(
         gte(programaciones.fecha, desde),
@@ -113,7 +113,10 @@ export default async function Calendario({ searchParams }: PageProps<"/calendari
             <label htmlFor={`c-${f.n}`} className="etiqueta">{f.l}</label>
             <select id={`c-${f.n}`} name={f.n} defaultValue={f.v || ""} className="campo">
               <option value="">Todos</option>
-              {f.o.map((o) => <option key={o.id} value={o.id}>{o.t}</option>)}
+              {f.n === "sede" ? estructuras.map((region) => {
+                const opciones = sedes.filter((s) => s.estructuraId === region.id);
+                return opciones.length ? <optgroup key={region.id} label={region.nombre}>{opciones.map((o) => <option key={o.id} value={o.id}>{o.nombre}</option>)}</optgroup> : null;
+              }) : f.o.map((o) => <option key={o.id} value={o.id}>{o.t}</option>)}
             </select>
           </div>
         ))}

@@ -6,7 +6,8 @@ import { and, gte, lte, ne } from "drizzle-orm";
 import { programaciones } from "@/db/schema";
 import { listarProgramaciones, opcionesFiltros, ruta, combinadas } from "@/lib/consultas";
 import { fechaCorta, hoyISO, hora, inicioSemana, sumarDias } from "@/lib/fechas";
-import { Encabezado, Vacio, iniciales, nombreCompleto, Combinadas } from "@/components/ui";
+import { Encabezado, Vacio, iniciales, nombreCompleto, TituloSesion } from "@/components/ui";
+import CampoFecha from "@/components/CampoFecha";
 import SelectorConsultor from "./SelectorConsultor";
 
 export const metadata = { title: "Carga laboral del personal" };
@@ -230,11 +231,11 @@ export default async function CargaPersonal({ searchParams }: PageProps<"/estrat
       <form key={`${desde}:${hasta}:${vista}`} className="card flex flex-wrap items-end gap-3.5 px-5 py-4">
         <div>
           <label htmlFor="c-desde" className="etiqueta">Desde</label>
-          <input id="c-desde" type="date" name="desde" defaultValue={desde} className="campo" />
+          <CampoFecha id="c-desde" name="desde" value={desde} />
         </div>
         <div>
           <label htmlFor="c-hasta" className="etiqueta">Hasta</label>
-          <input id="c-hasta" type="date" name="hasta" defaultValue={hasta} className="campo" />
+          <CampoFecha id="c-hasta" name="hasta" value={hasta} />
         </div>
         {vista !== "todos" && <input type="hidden" name="rol" value={vista} />}
         <button className="btn-oscuro">Ver periodo</button>
@@ -466,8 +467,7 @@ export default async function CargaPersonal({ searchParams }: PageProps<"/estrat
                     </td>
                     <td className="td">
                       <div className="flex flex-col">
-                        <Link href={`/operativo/capacitaciones/${p.id}`} className="font-medium hover:underline">{p.sesion.nombre}</Link>
-                        <Combinadas nombres={combinadas(p)} />
+                        <Link href={`/operativo/capacitaciones/${p.id}`} className="font-medium hover:underline"><TituloSesion nombre={p.sesion.nombre} combinadas={combinadas(p)} /></Link>
                         <span className="text-xs text-texto-2">{ruta(p)}</span>
                       </div>
                     </td>

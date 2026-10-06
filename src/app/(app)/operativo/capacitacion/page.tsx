@@ -6,7 +6,7 @@ import { db } from "@/db";
 import { asistencias, inscripciones, programaciones } from "@/db/schema";
 import { listarProgramaciones, opcionesFiltros, ruta, combinadas } from "@/lib/consultas";
 import { fechaLarga, hoyISO, hora, sumarDias, TURNO_LABEL } from "@/lib/fechas";
-import { ChipEstado, Encabezado, Pestanas, TABS_PRE, Vacio, nombreCompleto, Combinadas } from "@/components/ui";
+import { ChipEstado, Encabezado, Pestanas, TABS_PRE, Vacio, nombreCompleto, TituloSesion } from "@/components/ui";
 
 export const metadata = { title: "Capacitación" };
 
@@ -101,10 +101,9 @@ export default async function Asistencia({ searchParams }: PageProps<"/operativo
                     <ChipEstado estado={p.estado} sinCapacitador={!p.capacitador} />
                   </div>
                   <div className="flex flex-col gap-0.5">
-                    <span className="font-medium">{p.sesion.nombre}</span>
+                    <span className="font-medium"><TituloSesion nombre={p.sesion.nombre} combinadas={combinadas(p)} /></span>
                     <span className="text-[13px] text-texto-2">{ruta(p)}</span>
                     {p.observacion && <span className="text-xs italic text-[#92400e]">{p.observacion}</span>}
-                    <Combinadas nombres={combinadas(p)} />
                   </div>
                   <div className="flex items-center justify-between border-t border-[#eef1f5] pt-3 text-sm">
                     <span>{nombreCompleto(p.capacitador)}</span>

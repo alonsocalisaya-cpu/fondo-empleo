@@ -6,6 +6,7 @@ import { accionesCorrectivas } from "@/db/schema";
 import { calcularIndicadores, METAS, semaforo, type Resultado, type Semaforo } from "@/lib/indicadores";
 import { fechaCorta, hoyISO, sumarDias } from "@/lib/fechas";
 import { Encabezado, Vacio } from "@/components/ui";
+import CampoFecha from "@/components/CampoFecha";
 
 export const metadata = { title: "Indicadores" };
 
@@ -149,11 +150,11 @@ export default async function Indicadores({ searchParams }: PageProps<"/estrateg
       <form className="card flex flex-wrap items-end gap-3.5 px-5 py-4">
         <div>
           <label htmlFor="i-desde" className="etiqueta">Desde</label>
-          <input id="i-desde" type="date" name="desde" defaultValue={desde} className="campo" />
+          <CampoFecha id="i-desde" name="desde" value={desde} />
         </div>
         <div>
           <label htmlFor="i-hasta" className="etiqueta">Hasta</label>
-          <input id="i-hasta" type="date" name="hasta" defaultValue={hasta} className="campo" />
+          <CampoFecha id="i-hasta" name="hasta" value={hasta} />
         </div>
         <button className="btn-oscuro">Calcular</button>
         <div className="flex flex-wrap gap-2 pb-0.5">

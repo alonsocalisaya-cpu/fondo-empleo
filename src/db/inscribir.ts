@@ -1,7 +1,7 @@
 /**
  * Inscribe automáticamente a los beneficiarios en las sesiones programadas de su sede y turno
- * (lista de turno oficial). Un beneficiario de turno "ambos" va a todas las sesiones de su sede.
- * La sede "Paucarpata (virtual)" recibe a TODOS los beneficiarios de "Paucarpata" (son los mismos), sin importar el turno.
+ * (lista de turno oficial). Un beneficiario de turno "ambos" va a las sesiones de ambos registros del mismo local.
+ * La sede "Paucarpata virtual" recibe a TODOS los beneficiarios de "Paucarpata" (son los mismos), sin importar el turno.
  * Solo agrega: nunca quita inscripciones (para no perder asistencias ya registradas).
  */
 import { sql } from "drizzle-orm";
@@ -26,8 +26,9 @@ export async function inscribirBeneficiarios(
     join participantes b on b.sede_id is not null
     join sedes sb on sb.id = b.sede_id
     where p.estado <> 'cancelada'
-      and (sp.id = sb.id or sp.nombre like sb.nombre || ' (%')
-      and (b.turno = 'ambos' or b.turno = p.turno::text or sp.id <> sb.id)
+      and sp.estructura_id = sb.estructura_id
+      and sp.grupo = sb.grupo
+      and (b.turno = 'ambos' or b.turno = p.turno::text or sp.nombre = 'Paucarpata virtual')
       ${filtro}
       ${deQuien}
       ${desde}

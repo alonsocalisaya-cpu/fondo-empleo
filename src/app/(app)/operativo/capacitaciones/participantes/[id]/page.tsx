@@ -8,7 +8,7 @@ import { exigirUsuario } from "@/lib/auth";
 import { conRuta, combinadas, ruta } from "@/lib/consultas";
 import { fechaCorta, hora, hoyISO, TURNO_LABEL } from "@/lib/fechas";
 import { examenDe, examenes } from "@/lib/preparacion";
-import { Encabezado, Vacio, Combinadas } from "@/components/ui";
+import { Encabezado, Vacio, TituloSesion } from "@/components/ui";
 
 export const metadata = { title: "Detalle del beneficiario" };
 
@@ -202,8 +202,7 @@ export default async function DetalleBeneficiario({ params }: PageProps<"/operat
                       <span className="text-xs text-texto-2">{hora(p.horaInicio)} – {hora(p.horaFin)} · {TURNO_LABEL[p.turno]}</span>
                     </td>
                     <td className="td">
-                      <Link href={`/operativo/capacitacion/${p.id}`} className="font-medium hover:underline">{p.sesion.nombre}</Link>
-                      <Combinadas nombres={combinadas(p)} />
+                      <Link href={`/operativo/capacitacion/${p.id}`} className="font-medium hover:underline"><TituloSesion nombre={p.sesion.nombre} combinadas={combinadas(p)} /></Link>
                       <span className="block text-xs text-texto-2">
                         {ruta(p)}
                         {examen && <span className="ml-1.5 rounded bg-[#eef8f5] px-1.5 py-0.5 text-[10px] font-semibold text-acento-oscuro">📝 examen {examen === "ambos" ? "entrada y salida" : examen}</span>}
