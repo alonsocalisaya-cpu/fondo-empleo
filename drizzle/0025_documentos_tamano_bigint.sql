@@ -1,0 +1,1 @@
+ALTER TABLE "documentos" ALTER COLUMN "tamano" SET DATA TYPE bigint;

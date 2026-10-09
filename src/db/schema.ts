@@ -5,6 +5,7 @@ import {
   pgEnum,
   serial,
   integer,
+  bigint,
   varchar,
   text,
   boolean,
@@ -459,7 +460,7 @@ export const documentos = pgTable(
     nombre: varchar("nombre", { length: 200 }).notNull(),
     url: varchar("url", { length: 1000 }), // enlace (p. ej. NextCloud) — o bien un archivo subido
     archivo: varchar("archivo", { length: 300 }), // ruta relativa dentro de la carpeta «archivos/»
-    tamano: integer("tamano"), // bytes del archivo subido
+    tamano: bigint("tamano", { mode: "number" }), // bytes, incluidos archivos mayores de 2 GB
     // null = material oficial de la sesión · con valor = versión personalizada para esa programación
     programacionId: integer("programacion_id").references(() => programaciones.id, { onDelete: "cascade" }),
     subidoPor: varchar("subido_por", { length: 150 }),

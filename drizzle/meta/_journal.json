@@ -176,6 +176,13 @@
       "when": 1791300001000,
       "tag": "0024_sedes_un_horario",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1791518855458,
+      "tag": "0025_documentos_tamano_bigint",
+      "breakpoints": true
     }
   ]
 }

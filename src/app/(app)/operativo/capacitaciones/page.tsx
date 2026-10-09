@@ -53,8 +53,8 @@ export default async function Capacitaciones({ searchParams }: PageProps<"/opera
     const etapa = etapaActual(ctx);
     const r = resumenFlujo(ctx, etapa);
     const todo = resumenFlujo(ctx, "completo");
-    const comunicarPendiente = todo.estados.find((e) => e.clave === "comunicar")!.estado !== "hecho";
-    const vencida = comunicarPendiente && !r.reprogramada && hoy > sumarDias(p.fecha, -DIAS_ANTICIPACION_COMUNICACION);
+    const validacionPendiente = todo.estados.find((e) => e.clave === "validar_programacion")?.estado !== "hecho";
+    const vencida = validacionPendiente && hoy > sumarDias(p.fecha, -DIAS_ANTICIPACION_COMUNICACION);
     return { p, r, etapa, todo, vencida };
   });
   const coincide = (f: (typeof filas)[number]) =>
@@ -246,7 +246,7 @@ export default async function Capacitaciones({ searchParams }: PageProps<"/opera
                         {siguientes.length > 2 && <span className="text-xs text-texto-2">+{siguientes.length - 2} más</span>}
                       </>
                     )}
-                    {vencida && <span className="text-xs font-semibold text-[#991b1b]">⚠ Comunicación al personal fuera de plazo</span>}
+                    {vencida && <span className="text-xs font-semibold text-[#991b1b]">⚠ Validación de programación fuera de plazo</span>}
                   </div>
                   <div className="flex items-center justify-between gap-3 border-t border-[#eef1f5] pt-3 text-sm">
                     <span>{nombreCompleto(p.capacitador)}</span>

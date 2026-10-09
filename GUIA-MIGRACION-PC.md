@@ -37,3 +37,11 @@ npm run dev
 ```
 
 El respaldo contiene los registros actuales de la aplicación. Debe mantenerse en un lugar privado y no subirse al repositorio público.
+
+Para generar un respaldo actualizado en este equipo:
+
+```powershell
+node scripts/respaldar-db.mjs
+```
+
+Se guarda en `respaldos-db/` y se comprueba su contenido con `pg_restore --list`. Los documentos subidos se encuentran en `archivos/`; esa carpeta también debe copiarse para trasladar el sistema completo.

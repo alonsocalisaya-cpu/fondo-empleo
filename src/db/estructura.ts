@@ -25,6 +25,21 @@ export async function importarEstructura(opciones: { reemplazar?: boolean } = {}
     .onConflictDoUpdate({ target: s.estructuras.nombre, set: { nombre: "Arequipa" } })
     .returning();
 
+  // Conserva los IDs y las relaciones ya programadas al cambiar la codificación histórica de Arequipa.
+  for (const c of ESTRUCTURA) {
+    if (!c.codigo.startsWith("ARQ-")) continue;
+    await db.update(s.componentes).set({ codigo: c.codigo }).where(eq(s.componentes.codigo, c.codigo.slice(4)));
+    for (const a of c.actividades) {
+      await db.update(s.actividades).set({ codigo: a.codigo }).where(eq(s.actividades.codigo, a.codigo.slice(4)));
+      for (const m of a.modulos) {
+        await db.update(s.modulos).set({ codigo: m.codigo }).where(eq(s.modulos.codigo, m.codigo.slice(4)));
+        for (const x of m.sesiones) {
+          await db.update(s.sesiones).set({ codigo: x.codigo }).where(eq(s.sesiones.codigo, x.codigo.slice(4)));
+        }
+      }
+    }
+  }
+
   for (const [ci, c] of ESTRUCTURA.entries()) {
     codigosComp.push(c.codigo);
     const [comp] = await db

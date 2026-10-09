@@ -15,6 +15,36 @@ const num = (f: FormData, k: string, def: number) => {
   return Number.isFinite(n) && n > 0 ? Math.round(n) : def;
 };
 
+async function estructuraDeNodo(tipo: Tipo, id: number | null, padreId: number | null, estructuraNueva: number) {
+  let componenteId: number | null = null;
+  let estructuraId: number | null = null;
+
+  if (tipo === "c") {
+    estructuraId = id
+      ? (await db.query.componentes.findFirst({ where: eq(componentes.id, id), columns: { estructuraId: true } }))?.estructuraId ?? null
+      : estructuraNueva || null;
+  } else if (tipo === "a") {
+    componenteId = id
+      ? (await db.query.actividades.findFirst({ where: eq(actividades.id, id), columns: { componenteId: true } }))?.componenteId ?? null
+      : padreId;
+  } else {
+    const moduloId = tipo === "m"
+      ? id
+        ? (await db.query.modulos.findFirst({ where: eq(modulos.id, id), columns: { actividadId: true } }))?.actividadId ?? null
+        : null
+      : id
+        ? (await db.query.sesiones.findFirst({ where: eq(sesiones.id, id), columns: { moduloId: true } }))?.moduloId ?? null
+        : padreId;
+    const actividadId = tipo === "m" ? (moduloId ?? padreId) : moduloId ? (await db.query.modulos.findFirst({ where: eq(modulos.id, moduloId), columns: { actividadId: true } }))?.actividadId ?? null : null;
+    componenteId = actividadId
+      ? (await db.query.actividades.findFirst({ where: eq(actividades.id, actividadId), columns: { componenteId: true } }))?.componenteId ?? null
+      : null;
+  }
+
+  if (componenteId) estructuraId = (await db.query.componentes.findFirst({ where: eq(componentes.id, componenteId), columns: { estructuraId: true } }))?.estructuraId ?? null;
+  return estructuraId ? (await db.query.estructuras.findFirst({ where: eq(estructuras.id, estructuraId), columns: { nombre: true } }))?.nombre : undefined;
+}
+
 function volver(nodo?: string, error?: string, estructura?: number): never {
   const q = new URLSearchParams();
   if (estructura) q.set("estructura", String(estructura));
@@ -30,15 +60,20 @@ export async function guardarNodo(form: FormData) {
   const tipo = txt(form, "tipo") as Tipo;
   const id = Number(form.get("id")) || null;
   const padreId = Number(form.get("padreId")) || null;
-  const codigo = txt(form, "codigo").toUpperCase();
+  const codigoIngresado = txt(form, "codigo").toUpperCase();
   const nombre = txt(form, "nombre");
   const descripcion = txt(form, "descripcion") || null;
   const orden = num(form, "orden", 0);
   const volverA = id ? `${tipo}-${id}` : padreId ? `${padreDe(tipo)}-${padreId}` : undefined;
 
   if (!["c", "a", "m", "s"].includes(tipo)) volver(undefined, "Tipo no válido.");
-  if (!codigo || !nombre) volver(volverA, "El código y el nombre son obligatorios.");
+  if (!codigoIngresado || !nombre) volver(volverA, "El código y el nombre son obligatorios.");
   if (!id && tipo !== "c" && !padreId) volver(undefined, "Falta el elemento superior.");
+
+  const nombreEstructura = await estructuraDeNodo(tipo, id, padreId, Number(form.get("estructuraId")) || 0);
+  const prefijo = nombreEstructura === "Arequipa" ? "ARQ" : nombreEstructura === "Puno" ? "PUN" : null;
+  const codigoBase = codigoIngresado.replace(/^(?:ARQ|PUN)-/, "");
+  const codigo = prefijo ? `${prefijo}-${codigoBase}` : codigoIngresado;
 
   let nuevoId = 0;
   try {

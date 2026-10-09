@@ -43,3 +43,7 @@ next-env.d.ts
 /archivos/
 # Respaldos locales de la base de datos (contienen datos operativos y personales)
 /respaldos-db/
+# Archivos locales de Windows y registros del servidor
+desktop.ini
+/servidor-*.log
+/docs/entregables-sesiones.png

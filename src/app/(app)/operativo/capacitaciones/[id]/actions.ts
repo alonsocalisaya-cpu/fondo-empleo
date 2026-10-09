@@ -118,6 +118,30 @@ export async function registrarPaso(_prev: Res, f: FormData): Promise<Res> {
   const siNo = decision === "si" ? true : decision === "no" ? false : null;
 
   switch (clave) {
+    case "validar_programacion": {
+      if (txt(f, "programacionValidada") !== "si") return { error: "Confirma que has revisado los datos de programación." };
+      if (!p.capacitadorId || !p.asistenteId) return { error: "Completa el capacitador y el asistente en el cronograma antes de validar." };
+      reg.programacionValidada = true;
+      reg.obs = txt(f, "obs") || null;
+      const dest = await destinatariosDe({ capacitadorId: p.capacitadorId, asistenteId: p.asistenteId });
+      const conAcceso = dest.filter((d) => d.conAcceso && d.usuarioId);
+      const etiquetaSesion = `${p.sesion.nombre} · ${p.sede.nombre}, ${fechaCorta(p.fecha)} ${hora(p.horaInicio)}`;
+      if (conAcceso.length) {
+        await db.delete(avisos).where(and(eq(avisos.programacionId, id), eq(avisos.origen, "validar_programacion")));
+        await db.insert(avisos).values(conAcceso.map((d) => ({
+          usuarioId: d.usuarioId!,
+          programacionId: id,
+          origen: "validar_programacion",
+          titulo: `Programación aprobada: ${etiquetaSesion}`,
+          mensaje: `El Jefe de Proyecto validó la programación. Tu rol es ${d.rol.toLowerCase()}. Revisa los detalles de la sesión.`,
+          href: `/operativo/capacitaciones/${id}?vista=pre&paso=validar_programacion`,
+          de: por,
+        })));
+      }
+      reg.notificados = conAcceso.map((d) => `${d.nombre} (${d.rol.toLowerCase()})`);
+      reg.sinAcceso = dest.filter((d) => !d.conAcceso).map((d) => `${d.nombre} (${d.rol.toLowerCase()})`);
+      break;
+    }
     case "confirmar_sede": {
       if (siNo === null) return { error: "Indica si el local quedó confirmado." };
       reg.localConfirmado = siNo;
@@ -188,42 +212,25 @@ export async function registrarPaso(_prev: Res, f: FormData): Promise<Res> {
     }
 
     case "dinamicas": {
-      if (siNo === null) return { error: "Indica si se requiere material para dinámicas." };
-      reg.requiere = siNo;
-      if (siNo) {
-        const delInventario = lineasInventario(f);
-        const extras = txt(f, "items").split("\n").map((l) => l.trim()).filter(Boolean).map((l) => {
-          const m = l.match(/^(\d+)\s*[x×]?\s+(.+)$/i);
-          return { programacionId: id, categoria: "dinamica" as CategoriaFicha, cantidad: m ? Number(m[1]) : 1, descripcion: (m ? m[2] : l).slice(0, 200) };
-        });
-        if (!delInventario.length && !extras.length) return { error: "Indica el material: cantidades del inventario y/o extras (uno por línea)." };
-        const nombres = delInventario.length
-          ? new Map((await db.select().from(insumos).where(inArray(insumos.id, delInventario.map((l) => l.insumoId)))).map((i) => [i.id, i.nombre]))
-          : new Map<number, string>();
-        const motivo = await motivoDe(id);
-        try {
-          await db.transaction(async (tx) => {
-            const err = await moverStock(tx, "salida", delInventario, id, `${motivo} · dinámicas`);
-            if (err) throw new SinStock(err);
-            const valores = [
-              ...delInventario.map((l) => ({
-                programacionId: id,
-                categoria: "dinamica" as CategoriaFicha,
-                cantidad: l.cantidad,
-                insumoId: l.insumoId,
-                descripcion: nombres.get(l.insumoId) ?? "Material",
-              })),
-              ...extras,
-            ];
-            await tx.insert(fichaItems).values(valores);
-          });
-        } catch (e) {
-          if (e instanceof SinStock) return { error: e.message };
-          throw e;
+      if (txt(f, "dinamicasImpresas") !== "si") return { error: "Confirma que ya imprimiste las dinámicas de esta sesión." };
+      reg.impresas = true;
+      {
+        const materiales = f.getAll("materialAdicional").map((v) => String(v).trim());
+        const cantidades = f.getAll("cantidadAdicional").map((v) => String(v).trim());
+        const extras: { programacionId: number; categoria: CategoriaFicha; cantidad: number; descripcion: string }[] = [];
+        for (let i = 0; i < Math.max(materiales.length, cantidades.length); i++) {
+          const descripcion = materiales[i] ?? "";
+          const textoCantidad = cantidades[i] ?? "";
+          if (!descripcion && !textoCantidad) continue;
+          const cantidad = Number(textoCantidad);
+          if (!descripcion || !textoCantidad || !Number.isSafeInteger(cantidad) || cantidad < 1) {
+            return { error: "Completa el material y una cantidad entera mayor que cero en cada fila." };
+          }
+          extras.push({ programacionId: id, categoria: "dinamica", cantidad, descripcion: descripcion.slice(0, 200) });
         }
-        reg.items = delInventario.length + extras.length;
-        reg.delInventario = delInventario.length;
-        reg.extras = extras.length;
+        if (extras.length) await db.insert(fichaItems).values(extras);
+        reg.items = extras.length;
+        reg.materialesAdicionales = extras.length;
       }
       break;
     }
@@ -656,6 +663,9 @@ export async function deshacerPaso(f: FormData) {
   }
   if (clave === "comunicar") {
     await db.delete(avisos).where(and(eq(avisos.programacionId, id), eq(avisos.origen, "comunicar")));
+  }
+  if (clave === "validar_programacion") {
+    await db.delete(avisos).where(and(eq(avisos.programacionId, id), eq(avisos.origen, "validar_programacion")));
   }
   if (clave === "personalizar") {
     const borrados = await db.delete(documentos).where(and(eq(documentos.programacionId, id), eq(documentos.version, "personalizada"))).returning();

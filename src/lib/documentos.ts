@@ -26,6 +26,7 @@ export const SECCIONES = {
   lista_asistencia: "Lista de Asistencia",
   talleres: "Talleres y practicas",
   video: "Video",
+  viaticos: "Viáticos",
 } as const;
 export type Seccion = keyof typeof SECCIONES;
 export const esSeccion = (v: unknown): v is Seccion => typeof v === "string" && v in SECCIONES;

@@ -1,30 +1,38 @@
 import SiPuede from "@/components/SiPuede";
 import Link from "next/link";
 import { connection } from "next/server";
-import { and, gte, ne } from "drizzle-orm";
+import { and, eq, gte, ne } from "drizzle-orm";
 import { db } from "@/db";
-import { programaciones } from "@/db/schema";
+import { componentes, programaciones } from "@/db/schema";
 import { listarProgramaciones } from "@/lib/consultas";
-import { contextosDe } from "@/lib/preparacion";
+import { contextosDe, examenes } from "@/lib/preparacion";
 import { estadoPaso } from "@/lib/flujo-pre";
 import { fechaCorta, hoyISO, sumarDias } from "@/lib/fechas";
 import { Encabezado, Vacio } from "@/components/ui";
 import FormSubirDocumento from "./FormSubirDocumento";
+import EntregablesSesiones from "./EntregablesSesiones";
 import { eliminarDocumento } from "@/lib/acciones-maestros";
 import BotonEliminar from "@/components/BotonEliminar";
-import { SECCIONES, TIPO_DOC, enlaceDoc, origenDoc, seccionDe, tamanoLegible } from "@/lib/documentos";
+import { TIPO_DOC, enlaceDoc, tamanoLegible } from "@/lib/documentos";
 
-export const metadata = { title: "Gestión documental" };
+export const metadata = { title: "Repositorio documental" };
 
 const TIPO = TIPO_DOC;
+const TIPOS_ACADEMICOS = new Set(["diapositiva", "taller", "examen_entrada", "examen_salida", "otro"]);
 
 export default async function GestionDocumental({ searchParams }: PageProps<"/soporte/gestion-documental">) {
   await connection();
   const sp = await searchParams;
-  const sesionSel = Number(sp.sesion) || 0;
+  const sesionSolicitada = Number(sp.sesion) || 0;
+  const parte = sp.parte === "sesiones" ? "sesiones" : sp.parte === "fichas" ? "fichas" : "academico";
+
+  const estructuras = await db.query.estructuras.findMany({ orderBy: (t, { asc }) => [asc(t.orden), asc(t.id)] });
+  const proyectoSolicitado = Number(sp.proyecto) || Number(sp.estructura) || estructuras[0]?.id;
+  const proyecto = estructuras.find((e) => e.id === proyectoSolicitado) ?? estructuras[0];
 
   const [arbol, docs, proximas] = await Promise.all([
     db.query.componentes.findMany({
+      where: proyecto ? eq(componentes.estructuraId, proyecto.id) : undefined,
       orderBy: (t, { asc }) => [asc(t.orden)],
       with: {
         actividades: {
@@ -37,20 +45,90 @@ export default async function GestionDocumental({ searchParams }: PageProps<"/so
     listarProgramaciones(and(gte(programaciones.fecha, sumarDias(hoyISO(), -7)), ne(programaciones.estado, "cancelada"))),
   ]);
 
-  // Bandeja: fichas esperando revisión de Gestión Documental
-  const ctxs = await contextosDe(proximas);
-  const porRevisar = proximas.filter((p) => estadoPaso("revisar_ficha", ctxs.get(p.id)!) === "disponible");
-
   const sesiones = arbol.flatMap((c) =>
     c.actividades.flatMap((a) => a.modulos.flatMap((m) => m.sesiones.map((s) => ({ ...s, grupo: `${c.nombre} › ${a.nombre} › ${m.nombre}` })))),
   );
-  const visibles = sesionSel ? docs.filter((d) => d.sesionId === sesionSel) : docs;
-  const sinMaterial = sesiones.filter((s) => !docs.some((d) => d.sesionId === s.id && !d.programacionId && (d.tipo === "diapositiva" || d.tipo === "taller")));
+  const sesionSel = sesiones.some((s) => s.id === sesionSolicitada) ? sesionSolicitada : 0;
+  const idsSesiones = new Set(sesiones.map((s) => s.id));
+  const examenPorSesion = await examenes(sesiones.map((s) => s.id));
+  const proximasProyecto = proyecto
+    ? proximas.filter((p) => p.sesion.modulo.actividad.componente.estructuraId === proyecto.id)
+    : proximas;
+
+  // Bandeja: fichas esperando revisión de Gestión Documental, dentro del proyecto seleccionado
+  const ctxs = await contextosDe(proximasProyecto);
+  const porRevisar = proximasProyecto.filter((p) => estadoPaso("revisar_ficha", ctxs.get(p.id)!) === "disponible");
+
+  const visibles = docs.filter((d) => {
+    const academico = !d.programacionId && TIPOS_ACADEMICOS.has(d.tipo);
+    const idSesion = d.sesionId ?? d.programacion?.sesionId ?? null;
+    return idSesion != null && idsSesiones.has(idSesion) && (sesionSel === 0 || idSesion === sesionSel) && (parte === "academico" ? academico : parte === "sesiones" && !academico);
+  });
+  const docsPorSesion = new Map<number, typeof visibles>();
+  for (const d of visibles) {
+    const idSesion = d.sesionId ?? d.programacion?.sesionId ?? null;
+    if (idSesion != null) docsPorSesion.set(idSesion, [...(docsPorSesion.get(idSesion) ?? []), d]);
+  }
+  const hrefParte = (nombre: "academico" | "sesiones" | "fichas") => `/soporte/gestion-documental?${proyecto ? `proyecto=${proyecto.id}&` : ""}parte=${nombre}${sesionSel ? `&sesion=${sesionSel}` : ""}`;
 
   return (
     <>
-      <Encabezado antetitulo="Soporte" titulo="Gestión documental" />
+      <Encabezado antetitulo="Soporte" titulo="Repositorio documental" />
 
+      {estructuras.length > 1 && (
+        <section className="flex flex-wrap items-center gap-3 rounded-lg border-l-4 border-l-marino bg-[#f3f6fa] px-3 py-2.5 sm:px-4">
+          <div className="min-w-32">
+            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-texto-2">Proyecto</p>
+            {proyecto && <p className="text-sm font-bold text-marino">{proyecto.nombre}</p>}
+          </div>
+          <nav aria-label="Proyectos del repositorio" className="flex flex-wrap gap-2">
+            {estructuras.map((e) => {
+              const seleccionado = proyecto?.id === e.id;
+              return (
+                <Link
+                  key={e.id}
+                  href={`/soporte/gestion-documental?proyecto=${e.id}&parte=${parte}`}
+                  aria-current={seleccionado ? "page" : undefined}
+                  className={`inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-semibold transition-colors ${seleccionado ? "border-marino bg-marino text-white shadow-sm" : "border-[#cbd5e1] bg-white text-marino hover:border-marino hover:bg-[#e8eef5]"}`}
+                >
+                  <span aria-hidden="true" className={`flex h-5 w-5 items-center justify-center rounded-full text-[11px] ${seleccionado ? "bg-white/20" : "bg-[#e8eef5]"}`}>{seleccionado ? "✓" : "⌖"}</span>
+                  {e.nombre}
+                  {seleccionado && <span className="rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide">Actual</span>}
+                </Link>
+              );
+            })}
+          </nav>
+        </section>
+      )}
+
+      <nav role="tablist" aria-label="Partes del repositorio" className="flex flex-wrap gap-2 border-b border-borde">
+        <Link
+          role="tab"
+          aria-selected={parte === "academico"}
+          href={hrefParte("academico")}
+          className={`rounded-t-lg px-4 py-3 text-sm font-semibold transition-colors ${parte === "academico" ? "border-b-2 border-marino bg-white text-marino" : "text-texto-2 hover:bg-[#eef1f5] hover:text-marino"}`}
+        >
+          Material Académico y exámenes
+        </Link>
+        <Link
+          role="tab"
+          aria-selected={parte === "sesiones"}
+          href={hrefParte("sesiones")}
+          className={`rounded-t-lg px-4 py-3 text-sm font-semibold transition-colors ${parte === "sesiones" ? "border-b-2 border-marino bg-white text-marino" : "text-texto-2 hover:bg-[#eef1f5] hover:text-marino"}`}
+        >
+          Entregable de sesiones
+        </Link>
+        <Link
+          role="tab"
+          aria-selected={parte === "fichas"}
+          href={hrefParte("fichas")}
+          className={`rounded-t-lg px-4 py-3 text-sm font-semibold transition-colors ${parte === "fichas" ? "border-b-2 border-marino bg-white text-marino" : "text-texto-2 hover:bg-[#eef1f5] hover:text-marino"}`}
+        >
+          Fichas por revisar <span className="ml-1 rounded-full bg-[#fce7f3] px-2 py-0.5 text-xs text-[#9d174d]">{porRevisar.length}</span>
+        </Link>
+      </nav>
+
+      {parte === "fichas" && (
       <section className="card">
         <h2 className="border-b border-borde px-6 py-4 text-lg font-semibold text-marino">
           Fichas por revisar <span className="ml-1 rounded-full bg-[#fce7f3] px-2 py-0.5 text-sm text-[#9d174d]">{porRevisar.length}</span>
@@ -68,31 +146,19 @@ export default async function GestionDocumental({ searchParams }: PageProps<"/so
           </ul>
         )}
       </section>
-
-      <h2 className="mt-2 text-xl font-bold text-marino">Repositorio de materiales</h2>
-      <p className="-mt-4 text-sm text-texto-2">
-        Diapositivas, talleres y exámenes por sesión. Los archivos se guardan en el sistema: el capacitador los descarga desde su primer paso en el expediente de pre-capacitación de cada fecha programada de esa sesión.
-      </p>
-
-      <SiPuede modulo="documental">
-      <FormSubirDocumento
-        key={sesionSel}
-        sesionInicial={sesionSel ? String(sesionSel) : undefined}
-        tipos={Object.entries(TIPO).map(([valor, texto]) => ({ valor, texto }))}
-        sesiones={[...sesiones]
-                .sort((a, b) => (a.id === sesionSel ? -1 : b.id === sesionSel ? 1 : 0))
-                .map((s) => ({ valor: String(s.id), texto: s.nombre }))}
-      />
-      </SiPuede>
-
-      {sinMaterial.length > 0 && (
-        <p className="rounded-lg border border-[#fde68a] bg-[#fffbeb] px-4 py-3 text-sm text-[#92400e]">
-          {sinMaterial.length} sesión(es) sin diapositivas ni talleres: {sinMaterial.slice(0, 6).map((s) => s.codigo).join(", ")}
-          {sinMaterial.length > 6 ? "…" : ""}
-        </p>
       )}
 
-      <form className="flex items-end gap-3">
+      {parte !== "fichas" && <>
+      <h2 className="mt-2 text-xl font-bold text-marino">{parte === "academico" ? "Material Académico y exámenes" : "Entregable de sesiones"}</h2>
+      <p className="-mt-4 text-sm text-texto-2">
+        {parte === "academico"
+          ? "Material organizado por componente, actividad, módulo y sesión. Cada archivo queda asociado a la sesión correspondiente."
+          : "Entregables organizados por sesión, fecha y sede: diapositivas, talleres o prácticas, asistencia, exámenes cuando correspondan, fotos, videos y viáticos."}
+      </p>
+
+      <form key={`${proyecto?.id}:${parte}:${sesionSel}`} className="flex items-end gap-3">
+        <input type="hidden" name="parte" value={parte} />
+        {proyecto && <input type="hidden" name="proyecto" value={proyecto.id} />}
         <div className="w-96">
           <label htmlFor="gd-ses" className="etiqueta">Filtrar por sesión</label>
           <select id="gd-ses" name="sesion" defaultValue={sesionSel || ""} className="campo">
@@ -103,43 +169,83 @@ export default async function GestionDocumental({ searchParams }: PageProps<"/so
         <button className="btn-secundario">Filtrar</button>
       </form>
 
-      <section className="card overflow-x-auto">
-        {visibles.length === 0 ? (
-          <Vacio>No hay documentos registrados.</Vacio>
-        ) : (
-          <table className="w-full min-w-[800px] text-sm">
-            <thead><tr><th className="th">Sesión</th><th className="th">Tipo</th><th className="th">Documento</th><th className="th">Versión</th><th className="th"></th></tr></thead>
-            <tbody>
-              {visibles.map((d) => (
-                <tr key={d.id}>
-                  <td className="td">
-                    <div className="flex flex-col">
-                      <span>{d.sesion ? `${d.sesion.codigo} · ${d.sesion.nombre}` : "General"}</span>
-                      {d.programacion && (
-                        <span className="text-xs text-[#9a3412]">
-                          {origenDoc(d)} · sesión del {fechaCorta(d.programacion.fecha)} · {d.programacion.sede.nombre} · 📁 {SECCIONES[seccionDe(d)]}{d.subidoPor ? ` · ${d.subidoPor}` : ""}
-                        </span>
-                      )}
+      {parte === "academico" ? (
+        <div className="space-y-4">
+          {arbol.length === 0 ? <Vacio>Este proyecto todavía no tiene estructura de capacitaciones.</Vacio> : arbol.map((c) => (
+            <section key={c.id} className="card overflow-hidden">
+              <header className="border-b border-borde bg-[#eef2f7] px-5 py-3">
+                <p className="text-xs font-bold uppercase tracking-wide text-texto-2">Componente {c.codigo}</p>
+                <h3 className="font-semibold text-marino">{c.nombre}</h3>
+              </header>
+              <div className="divide-y divide-borde px-4">
+                {c.actividades.map((a) => (
+                  <section key={a.id} className="py-4">
+                    <h4 className="mb-3 text-sm font-bold text-marino">Actividad {a.codigo} · {a.nombre}</h4>
+                    <div className="space-y-3">
+                      {a.modulos.map((m) => (
+                        <section key={m.id} className="rounded-lg border border-[#dce3ec] bg-[#fafbfd] p-3">
+                          <h5 className="mb-2 text-[13px] font-semibold text-texto-2">{m.codigo} · {m.nombre}</h5>
+                          <div className="space-y-2">
+                            {m.sesiones.filter((s) => !sesionSel || s.id === sesionSel).map((s) => {
+                              const examen = examenPorSesion.get(s.id);
+                              const documentosSesion = docsPorSesion.get(s.id) ?? [];
+                              const tiposSesion = Object.entries(TIPO).filter(([valor]) => {
+                                if (!TIPOS_ACADEMICOS.has(valor)) return false;
+                                if (valor === "examen_entrada") return examen === "entrada" || examen === "ambos";
+                                if (valor === "examen_salida") return examen === "salida" || examen === "ambos";
+                                return true;
+                              }).map(([valor, texto]) => ({ valor, texto }));
+                              return (
+                                <div key={s.id} className="grid rounded-md border border-[#dce3ec] bg-white lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+                                  <div className="flex flex-wrap content-start items-center gap-2 px-3 py-3 text-sm">
+                                    <span className="text-xs font-bold text-marino">{s.codigo}</span>
+                                    <span className="w-full font-semibold">{s.nombre}</span>
+                                    {(examen === "entrada" || examen === "ambos") && <span className="rounded-full bg-[#ede9fe] px-2 py-0.5 text-[11px] font-semibold text-[#5b21b6]">Examen de entrada</span>}
+                                    {(examen === "salida" || examen === "ambos") && <span className="rounded-full bg-[#ede9fe] px-2 py-0.5 text-[11px] font-semibold text-[#5b21b6]">Examen de salida</span>}
+                                    <span className="rounded-full bg-[#eef1f5] px-2 py-0.5 text-[11px] text-texto-2">{documentosSesion.length} archivo(s)</span>
+                                  </div>
+                                  <div className="min-w-0 space-y-3 border-t border-[#e6ebf1] p-3 lg:border-l lg:border-t-0">
+                                    {documentosSesion.length ? (
+                                      <ul className="divide-y divide-[#eef1f5] rounded-md border border-[#e6ebf1]">
+                                        {documentosSesion.map((d) => (
+                                          <li key={d.id} className="flex flex-wrap items-center gap-2 px-3 py-2 text-sm">
+                                            <span className="rounded bg-[#eef1f5] px-2 py-0.5 text-xs font-semibold text-texto-2">{TIPO[d.tipo]}</span>
+                                            <a href={enlaceDoc(d)} target={d.archivo ? undefined : "_blank"} rel="noreferrer" className="enlace min-w-0 flex-1">{d.archivo ? "⬇" : "↗"} {d.nombre}</a>
+                                            {d.version && <span className="text-xs text-texto-2">{d.version}</span>}
+                                            {d.tamano != null && <span className="text-xs text-texto-2">{tamanoLegible(d.tamano)}</span>}
+                                            <SiPuede modulo="documental">
+                                              <BotonEliminar accion={eliminarDocumento} campos={{ id: d.id }} etiqueta="Quitar" pregunta={`¿Quitar «${d.nombre}»?`} detalle={d.archivo ? "Se borra el archivo guardado." : undefined} />
+                                            </SiPuede>
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    ) : <p className="text-xs text-texto-2">Todavía no hay documentos para esta sesión.</p>}
+                                    <SiPuede modulo="documental">
+                                      <FormSubirDocumento
+                                        key={s.id}
+                                        sesionInicial={String(s.id)}
+                                        tipos={tiposSesion}
+                                        sesiones={[]}
+                                      />
+                                    </SiPuede>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </section>
+                      ))}
                     </div>
-                  </td>
-                  <td className="td">{TIPO[d.tipo]}</td>
-                  <td className="td">
-                    <a href={enlaceDoc(d)} target={d.archivo ? undefined : "_blank"} rel="noreferrer" className="enlace">{d.archivo ? "⬇" : "↗"} {d.nombre}</a>
-                    {!d.archivo && <span className="ml-1 rounded-full bg-[#fef3c7] px-2 py-0.5 text-[11px] font-semibold text-[#92400e]">Enlace antiguo · súbelo como archivo</span>}
-                    {d.tamano != null && <span className="ml-1 text-xs text-texto-2">({tamanoLegible(d.tamano)})</span>}
-                  </td>
-                  <td className="td">{d.version ?? "—"}</td>
-                  <td className="td text-right">
-                    <SiPuede modulo="documental">
-                    <BotonEliminar accion={eliminarDocumento} campos={{ id: d.id }} etiqueta="Quitar" pregunta={`¿Quitar «${d.nombre}»?`} detalle={d.archivo ? "Se borra el archivo guardado." : undefined} />
-                    </SiPuede>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </section>
+                  </section>
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
+      ) : (
+        <EntregablesSesiones arbol={arbol} docs={docs} sesionSel={sesionSel} examenPorSesion={examenPorSesion} proyectoId={proyecto?.id} programacionSel={Number(sp.programacion) || 0} />
+      )}
+      </>}
     </>
   );
 }

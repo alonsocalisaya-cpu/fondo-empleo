@@ -77,7 +77,12 @@ export function contexto(
 export async function cargarExpediente(id: number) {
   const p = await db.query.programaciones.findFirst({
     where: eq(programaciones.id, id),
-    with: { ...conRuta, asistente: true, preparacion: true },
+    with: {
+      ...conRuta,
+      sesion: { with: { modulo: { with: { actividad: { with: { componente: { with: { estructura: true } } } } } } } },
+      asistente: true,
+      preparacion: true,
+    },
   });
   if (!p) return null;
 

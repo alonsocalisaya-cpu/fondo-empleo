@@ -3,11 +3,13 @@ export type Subido = { id: number; nombre: string; tamano: number | null };
 
 export function subirArchivo(archivo: File, datos: Record<string, string | number | null | undefined>, alAvanzar: (pct: number) => void) {
   return new Promise<Subido>((resolve, reject) => {
-    const fd = new FormData();
-    fd.append("archivo", archivo);
-    for (const [k, v] of Object.entries(datos)) if (v !== null && v !== undefined && v !== "") fd.append(k, String(v));
+    const parametros = new URLSearchParams();
+    for (const [k, v] of Object.entries(datos)) if (v !== null && v !== undefined && v !== "") parametros.set(k, String(v));
+    parametros.set("archivo", archivo.name);
+    parametros.set("tamano", String(archivo.size));
     const xhr = new XMLHttpRequest();
-    xhr.open("POST", "/api/archivos");
+    xhr.open("POST", `/api/archivos?${parametros}`);
+    xhr.setRequestHeader("Content-Type", "application/octet-stream");
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable) alAvanzar(Math.round((e.loaded * 100) / e.total));
     };
@@ -22,7 +24,8 @@ export function subirArchivo(archivo: File, datos: Record<string, string | numbe
       else reject(new Error(r.error ?? `No se pudo subir «${archivo.name}» (error ${xhr.status}).`));
     };
     xhr.onerror = () => reject(new Error(`Se perdió la conexión al subir «${archivo.name}».`));
-    xhr.send(fd);
+    xhr.onabort = () => reject(new Error(`Se canceló la subida de «${archivo.name}».`));
+    xhr.send(archivo);
   });
 }
 

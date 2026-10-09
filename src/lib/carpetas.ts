@@ -1,6 +1,6 @@
 /**
  * Carpeta de cada archivo según la estructura del programa:
- *   archivos/<Componente>/<Actividad>/<Módulo>/<S3 Sesión>/        → material oficial de la sesión
+ *   archivos/<Proyecto>/<Componente>/<Actividad>/<Módulo>/<Sesión>/ → material oficial, solo códigos
  *   archivos/<Componente>/<Actividad>/<Módulo>/<Sede -Turno- dd-mm-aaaa Sesión>/<Subcarpeta>/
  *        → lo de una fecha programada, separado en Diapositivas y material modificado · Examen · Fotos ·
  *          Lista de Asistencia · Talleres y practicas · Video (el turno solo en sedes con mañana y tarde)
@@ -38,6 +38,16 @@ export async function carpetaDe(sesionId: number, programacionId?: number | null
     .innerJoin(componentes, eq(actividades.componenteId, componentes.id))
     .where(eq(sesiones.id, sesionId));
   if (!r) return "sin sesion";
+  if (!programacionId) {
+    const prefijo = r.c.codigo.match(/^([A-Za-z][A-Za-z0-9]*)-/)?.[1];
+    const proyecto = prefijo ?? `PRY-${r.c.estructuraId}`;
+    const sinProyecto = (codigo: string) => prefijo && codigo.startsWith(`${prefijo}-`)
+      ? codigo.slice(prefijo.length + 1)
+      : codigo;
+    return [proyecto, sinProyecto(r.c.codigo), sinProyecto(r.a.codigo), sufijo(r.m.codigo), sufijo(r.s.codigo)]
+      .map((codigo) => nombreCarpeta(codigo, 64))
+      .join("/");
+  }
   const partes = [
     nombreCarpeta(conCodigo(r.c.codigo, r.c.nombre), 34),
     nombreCarpeta(conCodigo(r.a.codigo, r.a.nombre), 30),

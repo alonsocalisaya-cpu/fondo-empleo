@@ -30,10 +30,14 @@ export default function CampoFecha({ id, name, value, required = false }: { id: 
       placeholder="dd/mm/aaaa"
       value={texto}
       required={required}
-      pattern="\\d{2}/\\d{2}/\\d{4}"
+      pattern="[0-9]{2}/[0-9]{2}/[0-9]{4}"
       title="Escribe la fecha como día/mes/año, por ejemplo 05/10/2026."
       className="campo"
-      onChange={(e) => setTexto(e.target.value.replace(/[^\d/]/g, "").slice(0, 10))}
+      onChange={(e) => {
+        const texto = e.target.value.replace(/[^\d/]/g, "").slice(0, 10);
+        setTexto(texto);
+        e.target.setCustomValidity(texto && !aISO(texto) ? "Escribe una fecha válida como día/mes/año, por ejemplo 05/10/2026." : "");
+      }}
     />
   </>;
 }

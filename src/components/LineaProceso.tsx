@@ -4,7 +4,7 @@ import type { EstadoPaso } from "@/lib/flujo-pre";
 type Paso = { clave: string; titulo: string; corto: string; estado: EstadoPaso; fase: number; carril: string };
 type Est = EstadoPaso | "detenido";
 
-const FASE_CORTA: Record<number, string> = { 1: "Local", 2: "Personal", 3: "Preparación", 4: "Salida", 5: "Cierre", 6: "Entregables", 7: "Documentación", 8: "Revisión y cierre" };
+const FASE_CORTA: Record<number, string> = { 1: "Programación", 2: "Preparación", 3: "Salida", 4: "Cierre", 5: "Entregables", 6: "Documentación", 7: "Revisión y cierre" };
 
 const COLOR: Record<Est, { relleno: string; borde: string; texto: string; etiqueta: string }> = {
   hecho: { relleno: "#16a34a", borde: "#16a34a", texto: "#ffffff", etiqueta: "#166534" },
@@ -23,8 +23,8 @@ const TXT: Record<Est, string> = {
 
 /**
  * Línea del proceso: un punto por actividad, unidos por una línea y coloreados según su estado.
- * Fases 1–2 en una sola línea; en la fase 3 se abren dos carriles en paralelo (capacitador arriba /
- * asistente abajo) que se vuelven a unir en la fase 4. Bajo cada punto va un nombre corto.
+ * La fase 1 reúne la validación de programación y local; en la fase 2 se abren dos carriles
+ * en paralelo que se vuelven a unir en la fase 3. Bajo cada punto va un nombre corto.
  */
 export default function LineaProceso({
   pasos,

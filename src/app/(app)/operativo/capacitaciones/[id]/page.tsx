@@ -16,6 +16,7 @@ import LineaProceso from "@/components/LineaProceso";
 import SubirArchivos from "@/components/SubirArchivos";
 import ContrasteInventario from "./ContrasteInventario";
 import CampoAsistentes from "./CampoAsistentes";
+import MaterialesAdicionales from "./MaterialesAdicionales";
 import { DOCUMENTOS_REVISION, ENTREGABLES, GASTOS, PREGUNTAS_PREPARACION, type Ficha2 } from "@/lib/ficha2";
 import FormPaso, { BotonesDecision, FormAccion, FormItem } from "./FormPaso";
 import FormLiquidacion from "./FormLiquidacion";
@@ -25,6 +26,48 @@ export const metadata = { title: "Expediente de pre-capacitación" };
 
 type Exp = NonNullable<Awaited<ReturnType<typeof cargarExpediente>>>;
 type EstadoItem = ReturnType<typeof resumenFlujo>["estados"][number];
+
+function ResumenProgramacion({ e, u }: { e: Exp; u: Usuario }) {
+  const { p } = e;
+  const datos = [
+    ["Región / estructura", p.sesion.modulo.actividad.componente.estructura.nombre],
+    ["Programa", ruta(p, "completa")],
+    ["Sesiones", [p.sesion.nombre, ...combinadas(p)].join(" + ")],
+    ["Fecha", fechaLarga(p.fecha)],
+    ["Horario", `${hora(p.horaInicio)}–${hora(p.horaFin)}`],
+    ["Turno", TURNO_LABEL[p.turno]],
+    ["Sede y aula", `${p.sede.nombre} · ${p.aula || "Sin aula indicada"}`],
+    ["Capacitador", nombreCompleto(p.capacitador)],
+    ["Asistente", nombreCompleto(p.asistente)],
+    ["Cupo", p.cupo == null ? "Sin cupo indicado" : String(p.cupo)],
+  ];
+  return (
+    <section aria-label="Datos de programación" className="card flex flex-col gap-3 px-5 py-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="font-semibold text-marino">Programación de la capacitación</h3>
+        {puede(u.roles, "cronograma", "editar") && (
+          <Link
+            href={`/estrategico/cronograma/${p.id}`}
+            className="btn-secundario gap-2 rounded-lg px-4 py-2 text-sm shadow-sm transition-shadow hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-marino"
+          >
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L9 17l-4 1 1-4Z" />
+            </svg>
+            Revisar o editar cronograma
+            <span aria-hidden="true">→</span>
+          </Link>
+        )}
+      </div>
+      <dl className="grid gap-3 text-sm sm:grid-cols-2">
+        {datos.map(([label, valor]) => (
+          <div key={label}><dt className="text-texto-2">{label}</dt><dd className="font-medium text-texto">{valor}</dd></div>
+        ))}
+      </dl>
+      <ChipEstado estado={p.estado} sinCapacitador={!p.capacitador} />
+      {p.observacion && <p className="text-sm"><strong>Observación:</strong> {p.observacion}</p>}
+    </section>
+  );
+}
 
 const CATEGORIAS = {
   material_capacitador: "Material solicitado por el capacitador",
@@ -42,11 +85,17 @@ function Resumen({ clave, r }: { clave: string; r: PasoRegistro }) {
   const d = r as Record<string, unknown>;
   const partes: string[] = [];
   switch (clave) {
+    case "validar_programacion":
+      partes.push("Datos de programación validados");
+      if ((d.notificados as string[] | undefined)?.length) partes.push(`Aviso enviado a ${(d.notificados as string[]).join(" y ")}`);
+      if ((d.sinAcceso as string[] | undefined)?.length) partes.push(`Sin acceso para recibir el aviso: ${(d.sinAcceso as string[]).join(", ")}`);
+      break;
     case "confirmar_sede":
       partes.push(d.localConfirmado ? "Local confirmado" : "Local NO confirmado → reprogramar");
       if (d.contacto) partes.push(`Contacto: ${d.contacto}`);
       break;
     case "comunicar":
+      if (d.programacionValidada) partes.push("Datos de programación validados");
       if (d.capacitador) partes.push(`Capacitador: ${d.capacitador}`, `Asistente: ${d.asistente}${d.cambioPersonal ? " (cambiado respecto a la programación)" : ""}`);
       partes.push(d.aTiempo ? "Comunicado a tiempo" : `Comunicado fuera de plazo (límite ${fechaCorta(String(d.limite))})`);
       if ((d.notificados as string[] | undefined)?.length) partes.push(`Notificado por el sistema a ${(d.notificados as string[]).join(" y ")}`);
@@ -58,11 +107,15 @@ function Resumen({ clave, r }: { clave: string; r: PasoRegistro }) {
       break;
     case "dinamicas":
       partes.push(
-        d.requiere
-          ? d.delInventario !== undefined
-            ? `Solicitó ${d.delInventario} ítem(s) del inventario y ${d.extras} extra(s)`
-            : `Solicitó ${d.items} ítem(s) al asistente`
-          : "No requiere material",
+        d.impresas
+          ? `Confirmó la impresión de las dinámicas${d.materialesAdicionales ? ` · solicitó ${d.materialesAdicionales} material(es) adicional(es)` : ""}`
+          : d.requiere
+            ? d.solicitudesImpresion !== undefined
+              ? `Solicitó imprimir ${d.solicitudesImpresion} dinámica(s)`
+              : d.delInventario !== undefined
+                ? `Solicitó ${d.delInventario} ítem(s) del inventario y ${d.extras} extra(s)`
+                : `Solicitó ${d.items} ítem(s) al asistente`
+            : "No requiere material",
       );
       break;
     case "examen":
@@ -219,6 +272,16 @@ function CamposPersonal({ e }: { e: Exp }) {
 function Campos({ clave, e }: { clave: string; e: Exp }) {
   const pasos = e.ctx.pasos;
   switch (clave) {
+    case "validar_programacion":
+      return (
+        <>
+          <label className="flex items-start gap-2 text-sm">
+            <input type="checkbox" name="programacionValidada" value="si" required className="mt-1" />
+            He revisado y validado los datos de programación de esta capacitación.
+          </label>
+          <input name="obs" placeholder="Observación de la revisión (opcional)" aria-label="Observación de la revisión" className="campo py-2" />
+        </>
+      );
     case "confirmar_sede":
       return (
         <>
@@ -313,35 +376,13 @@ function Campos({ clave, e }: { clave: string; e: Exp }) {
         </>
       );
     case "dinamicas": {
-      const materiales = e.inventario.filter((i) => i.categoria === "material");
       return (
         <>
-          <p className="text-[13px] font-semibold text-marino">Del inventario de Logística <span className="font-normal text-texto-2">(se descuenta del stock)</span></p>
-          {materiales.length === 0 ? (
-            <p className="text-xs text-texto-2">No hay materiales en el inventario. <Link href="/soporte/logistica" className="enlace">Ir a Logística</Link></p>
-          ) : (
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-              {materiales.map((i) => (
-                <label key={i.id} className={`flex items-center gap-2 rounded-md border px-2 py-1.5 text-[13px] ${i.stock === 0 ? "border-[#fecaca] text-texto-2" : "border-borde"}`}>
-                  <input name={`inv-${i.id}`} type="number" min={0} max={i.stock} placeholder="0" disabled={i.stock === 0} aria-label={`Cantidad de ${i.nombre}`} className="campo w-16 px-2 py-1" />
-                  <span className="flex flex-col leading-tight">
-                    <span>{i.nombre}</span>
-                    <span className={`text-[11px] ${i.stock < i.stockMinimo ? "text-[#991b1b]" : "text-texto-2"}`}>stock {i.stock} {i.unidad}</span>
-                  </span>
-                </label>
-              ))}
-            </div>
-          )}
-          <label htmlFor="f-extras" className="text-[13px] font-semibold text-marino">Extras que no están en el inventario</label>
-          <textarea
-            id="f-extras"
-            name="items"
-            rows={2}
-            placeholder={"Uno por línea con cantidad:\n20 vasos descartables\n10 hojas de colores"}
-            className="campo py-2"
-          />
-          <p className="text-[13px] font-semibold text-marino">¿Requiere material para dinámicas?</p>
-          <BotonesDecision si="Sí, solicitar al asistente" no="No requiere" />
+          <label className="flex items-start gap-2 text-sm">
+            <input type="checkbox" name="dinamicasImpresas" value="si" required className="mt-1" />
+            Confirmo que ya imprimí las dinámicas de esta sesión.
+          </label>
+          <MaterialesAdicionales />
         </>
       );
     }
@@ -685,7 +726,7 @@ function Campos({ clave, e }: { clave: string; e: Exp }) {
       return (
         <div className="flex flex-col gap-3">
           <p className="text-xs text-texto-2">
-            Cada grupo se guarda en su subcarpeta de esta fecha. Puedes elegir varios archivos a la vez (documentos y fotos hasta 50 MB, videos hasta 300 MB).
+            Cada grupo se guarda en su subcarpeta de esta fecha. Puedes elegir varios archivos a la vez.
           </p>
           <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
             <SubirArchivos
@@ -1026,8 +1067,9 @@ function FichaPrimera({ e, editable }: { e: Exp; editable: boolean }) {
   );
 }
 
-const DECISIONES = new Set(["confirmar_sede", "personalizar", "dinamicas", "revisar_ficha", "sesion_realizada", "contrastar_inventario"]);
+const DECISIONES = new Set(["confirmar_sede", "personalizar", "revisar_ficha", "sesion_realizada", "contrastar_inventario"]);
 const BOTON: Record<string, string> = {
+  validar_programacion: "Validar programación",
   solicitar_entregables: "Entregables solicitados",
   corregir_examenes: "Exámenes corregidos",
   enviar_examenes: "Exámenes enviados",
@@ -1084,6 +1126,7 @@ function Tarjeta({ s, n, e, est, u, href }: { s: EstadoItem; n: number; e: Exp; 
         </div>
         <p className="text-xs text-texto-2">{s.descripcion}</p>
         {s.nota && <p className="text-xs italic text-[#6b7280]">📝 {s.nota}</p>}
+        {s.clave === "validar_programacion" && <ResumenProgramacion e={e} u={u} />}
 
         {s.estado === "hecho" && reg && (
           <div className="flex items-start justify-between gap-2">

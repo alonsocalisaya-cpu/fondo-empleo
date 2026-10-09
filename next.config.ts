@@ -25,7 +25,7 @@ const nextConfig: NextConfig = {
     "**": ["./archivos/**/*", "./plantillas/**/ORIGINAL*", "./.next/**/*"],
   },
 
-  // Permite subir archivos: documentos hasta 50 MB y videos de la sesión hasta 300 MB
+  // Solo formularios de Server Actions. Los documentos se transfieren por /api/archivos.
   experimental: {
     serverActions: { bodySizeLimit: "320mb" },
   },
