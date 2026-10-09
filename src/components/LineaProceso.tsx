@@ -5,6 +5,19 @@ type Paso = { clave: string; titulo: string; corto: string; estado: EstadoPaso; 
 type Est = EstadoPaso | "detenido";
 
 const FASE_CORTA: Record<number, string> = { 1: "Programación", 2: "Preparación", 3: "Salida", 4: "Cierre", 5: "Entregables", 6: "Documentación", 7: "Revisión y cierre" };
+const ACTIVIDAD_CORTA: Record<string, string> = {
+  dinamicas: "Dinámicas",
+  examen: "Examen",
+  entregar_viaticos: "Dar viát.",
+  llenar_ficha: "Comunicar",
+  corregir_examenes: "Corregir",
+  enviar_examenes: "Enviar exám.",
+  rendir_viaticos: "Rendir viát.",
+  recibir_rendicion: "Recibir",
+  revisar_documentacion: "Revisar",
+  gestionar_carpeta: "Carpeta",
+};
+const nombreGrafico = (p: Paso) => ACTIVIDAD_CORTA[p.clave] ?? p.corto;
 
 const COLOR: Record<Est, { relleno: string; borde: string; texto: string; etiqueta: string }> = {
   hecho: { relleno: "#16a34a", borde: "#16a34a", texto: "#ffffff", etiqueta: "#166534" },
@@ -121,7 +134,7 @@ export default function LineaProceso({
   const aplicables = pasos.filter((p) => p.estado !== "no_aplica").length;
   const resumen = detenido
     ? pasos.some((p) => p.clave === "sesion_realizada") ? "Detenido: la sesión no se realizó" : "Detenido: local no confirmado"
-    : `${hechos}/${aplicables} hechas${enCurso.length ? ` · Ahora: ${enCurso.map((p) => p.corto).join(", ")}` : ""}`;
+    : `${hechos}/${aplicables} hechas${enCurso.length ? ` · Ahora: ${enCurso.map(nombreGrafico).join(", ")}` : ""}`;
 
   const svg = (
     <svg
@@ -197,7 +210,7 @@ export default function LineaProceso({
                   fontWeight={est === "disponible" ? 700 : 500}
                   fill={c.etiqueta}
                 >
-                  {p.corto}
+                  {nombreGrafico(p)}
                 </text>
               </>
             )}

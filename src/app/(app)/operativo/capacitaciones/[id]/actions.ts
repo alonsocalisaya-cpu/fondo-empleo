@@ -32,6 +32,7 @@ import { destinatariosDe } from "@/lib/avisos";
 import { borrarArchivo } from "@/lib/archivos";
 import { guardarLiquidacionDb, leerLiquidacion } from "@/lib/liquidacion-db";
 import { saldo, totalGastos } from "@/lib/liquidacion";
+import { leerRecursos, leerEquipos, recursosDe } from "@/lib/recursos-sesion";
 
 export type Res = { ok?: string; error?: string } | undefined;
 
@@ -212,38 +213,92 @@ export async function registrarPaso(_prev: Res, f: FormData): Promise<Res> {
     }
 
     case "dinamicas": {
-      if (txt(f, "dinamicasImpresas") !== "si") return { error: "Confirma que ya imprimiste las dinámicas de esta sesión." };
-      reg.impresas = true;
-      {
-        const materiales = f.getAll("materialAdicional").map((v) => String(v).trim());
-        const cantidades = f.getAll("cantidadAdicional").map((v) => String(v).trim());
-        const extras: { programacionId: number; categoria: CategoriaFicha; cantidad: number; descripcion: string }[] = [];
-        for (let i = 0; i < Math.max(materiales.length, cantidades.length); i++) {
-          const descripcion = materiales[i] ?? "";
-          const textoCantidad = cantidades[i] ?? "";
-          if (!descripcion && !textoCantidad) continue;
-          const cantidad = Number(textoCantidad);
-          if (!descripcion || !textoCantidad || !Number.isSafeInteger(cantidad) || cantidad < 1) {
-            return { error: "Completa el material y una cantidad entera mayor que cero en cada fila." };
-          }
-          extras.push({ programacionId: id, categoria: "dinamica", cantidad, descripcion: descripcion.slice(0, 200) });
-        }
-        if (extras.length) await db.insert(fichaItems).values(extras);
-        reg.items = extras.length;
-        reg.materialesAdicionales = extras.length;
-      }
+      if (txt(f, "impresionCoordinada") !== "si") return { error: "Confirma que ya comunicaste y/o coordinaste la impresión de las dinámicas de esta sesión." };
+      reg.impresionCoordinada = true;
       break;
     }
 
     case "examen":
+      if (txt(f, "examenCoordinado") !== "si") return { error: "Confirma que ya coordinaste con el asistente la impresión del examen." };
       reg.tipo = ctx.examen;
-      reg.cantidad = Number(f.get("cantidad")) || null;
+      reg.examenCoordinado = true;
       break;
 
     case "guardar_material":
       reg.medio = txt(f, "medio");
       if (!reg.medio) return { error: "Indica el medio seguro donde se guardó el material." };
       reg.talleresImpresos = f.get("talleresImpresos") === "on";
+      break;
+
+    case "imprimir_ficha":
+      if (txt(f, "listaImpresa") !== "si") return { error: "Confirma que ya imprimiste la lista de asistencia." };
+      reg.listaImpresa = true;
+      for (const tipo of ["entrada", "salida"] as const) {
+        if (ctx.examen !== tipo && ctx.examen !== "ambos") continue;
+        const campo = tipo === "entrada" ? "copiasEntrada" : "copiasSalida";
+        const copias = Number(f.get(campo));
+        if (!Number.isSafeInteger(copias) || copias < 1) return { error: `Indica un número entero de copias impresas mayor que cero para el examen de ${tipo}.` };
+        reg[campo] = copias;
+      }
+      break;
+
+    case "solicitar_recursos": {
+      const solicitud = leerRecursos(f);
+      if (solicitud.error) return { error: solicitud.error };
+      const equipos = leerEquipos(f);
+      if (equipos.error) return { error: equipos.error };
+      reg.recursos = solicitud.recursos;
+      reg.equipos = equipos.equipos;
+      break;
+    }
+
+    case "revisar_recursos": {
+      const aprobacion = leerRecursos(f);
+      if (aprobacion.error) return { error: aprobacion.error };
+      const equipos = leerEquipos(f);
+      if (equipos.error) return { error: equipos.error };
+      if (txt(f, "coordinadoAsistente") !== "si") return { error: "Confirma que ya coordinaste los requerimientos con el asistente." };
+      if (txt(f, "recursosAprobados") !== "si") return { error: "Confirma la aprobación de los requerimientos." };
+      const originales = recursosDe(pasos.solicitar_recursos?.recursos);
+      reg.recursos = aprobacion.recursos;
+      reg.solicitados = originales;
+      reg.equipos = equipos.equipos;
+      reg.equiposSolicitados = recursosDe(pasos.solicitar_recursos?.equipos);
+      reg.modificados = JSON.stringify(originales) !== JSON.stringify(aprobacion.recursos) || JSON.stringify(reg.equiposSolicitados) !== JSON.stringify(equipos.equipos);
+      reg.obs = txt(f, "obs") || null;
+      reg.coordinadoAsistente = true;
+      reg.aprobado = true;
+      break;
+    }
+
+    case "programa_viaje": {
+      const decisionViaje = txt(f, "viajeCorresponde");
+      if (decisionViaje !== "si" && decisionViaje !== "no") return { error: "Indica si corresponde presentar el programa de viaje." };
+      reg.corresponde = decisionViaje === "si";
+      reg.itinerario = reg.corresponde ? txt(f, "itinerario") : null;
+      if (String(reg.itinerario ?? "").length > 5000) return { error: "El programa de viaje admite un máximo de 5000 caracteres." };
+      if (reg.corresponde) {
+        const ids = docsSubidos(f);
+        const n = await asociarDocs(ids, id, { subidoPor: por, tipo: "otro", version: "programa_viaje" });
+        if (!reg.itinerario && !n) return { error: "Sube el archivo del programa de viaje o completa el itinerario." };
+        reg.archivos = n;
+        reg.documentos = ids;
+      }
+      break;
+    }
+
+    case "aprobar_preparacion":
+      if (txt(f, "conforme") !== "si") return { error: "Confirma que la lista, los requerimientos aprobados y el programa de viaje son conformes." };
+      reg.conforme = true;
+      reg.listaImpresa = Boolean(pasos.imprimir_ficha);
+      reg.copiasEntrada = pasos.imprimir_ficha?.copiasEntrada ?? null;
+      reg.copiasSalida = pasos.imprimir_ficha?.copiasSalida ?? null;
+      reg.recursos = recursosDe(pasos.revisar_recursos?.recursos);
+      reg.equipos = recursosDe(pasos.revisar_recursos?.equipos);
+      reg.coordinadoAsistente = pasos.revisar_recursos?.coordinadoAsistente === true;
+      reg.viajeCorresponde = pasos.programa_viaje?.corresponde === true;
+      reg.itinerario = pasos.programa_viaje?.itinerario ?? null;
+      reg.documentosViaje = pasos.programa_viaje?.documentos ?? [];
       break;
 
     case "alistar_material": {

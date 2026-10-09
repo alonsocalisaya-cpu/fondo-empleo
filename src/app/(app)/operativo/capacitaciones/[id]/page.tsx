@@ -16,7 +16,11 @@ import LineaProceso from "@/components/LineaProceso";
 import SubirArchivos from "@/components/SubirArchivos";
 import ContrasteInventario from "./ContrasteInventario";
 import CampoAsistentes from "./CampoAsistentes";
-import MaterialesAdicionales from "./MaterialesAdicionales";
+import ImpresionDinamicas from "./ImpresionDinamicas";
+import SolicitudRecursos from "./SolicitudRecursos";
+import ProgramaViaje from "./ProgramaViaje";
+import { recursosDe } from "@/lib/recursos-sesion";
+import { listarPlantillasViaje } from "@/lib/plantillas-viaje";
 import { DOCUMENTOS_REVISION, ENTREGABLES, GASTOS, PREGUNTAS_PREPARACION, type Ficha2 } from "@/lib/ficha2";
 import FormPaso, { BotonesDecision, FormAccion, FormItem } from "./FormPaso";
 import FormLiquidacion from "./FormLiquidacion";
@@ -107,8 +111,12 @@ function Resumen({ clave, r }: { clave: string; r: PasoRegistro }) {
       break;
     case "dinamicas":
       partes.push(
-        d.impresas
+        d.impresionCoordinada
+          ? `Comunicó y/o coordinó la impresión de las dinámicas${d.materialesAdicionales ? ` · solicitó ${d.materialesAdicionales} material(es) adicional(es)` : ""}`
+          : d.impresas
           ? `Confirmó la impresión de las dinámicas${d.materialesAdicionales ? ` · solicitó ${d.materialesAdicionales} material(es) adicional(es)` : ""}`
+          : d.noNecesarioImprimir
+            ? `No es necesario imprimir las dinámicas${d.materialesAdicionales ? ` · solicitó ${d.materialesAdicionales} material(es) adicional(es)` : ""}`
           : d.requiere
             ? d.solicitudesImpresion !== undefined
               ? `Solicitó imprimir ${d.solicitudesImpresion} dinámica(s)`
@@ -119,10 +127,32 @@ function Resumen({ clave, r }: { clave: string; r: PasoRegistro }) {
       );
       break;
     case "examen":
-      partes.push(`Examen ${EXAMEN[d.tipo as keyof typeof EXAMEN] ?? ""} impreso${d.cantidad ? ` (${d.cantidad})` : ""}`);
+      partes.push(d.examenCoordinado
+        ? `Coordinó con el asistente la impresión del examen ${EXAMEN[d.tipo as keyof typeof EXAMEN] ?? ""}`
+        : `Examen ${EXAMEN[d.tipo as keyof typeof EXAMEN] ?? ""} impreso${d.cantidad ? ` (${d.cantidad})` : ""}`);
       break;
     case "guardar_material":
       partes.push(`Medio: ${d.medio}`, d.talleresImpresos ? "Talleres impresos" : "Talleres sin imprimir");
+      break;
+    case "imprimir_ficha":
+      partes.push("Lista de asistencia impresa · confirmación registrada");
+      if (d.copiasEntrada != null) partes.push(`Examen de entrada: ${d.copiasEntrada} copias impresas`);
+      if (d.copiasSalida != null) partes.push(`Examen de salida: ${d.copiasSalida} copias impresas`);
+      break;
+    case "solicitar_recursos":
+    case "revisar_recursos": {
+      const recursos = recursosDe(d.recursos);
+      partes.push(recursos.length ? recursos.map((r) => `${r.cantidad} unidades de ${r.descripcion}${r.detalle ? ` (${r.detalle})` : ""}`).join(" · ") : "No se requieren recursos");
+      const equipos = recursosDe(d.equipos);
+      partes.push(equipos.length ? `Equipos: ${equipos.map((r) => `${r.cantidad} unidades de ${r.descripcion}${r.detalle ? ` (${r.detalle})` : ""}`).join(" · ")}` : "Sin equipos solicitados");
+      if (clave === "revisar_recursos") partes.push("Requerimientos aprobados · coordinación con el asistente confirmada");
+      break;
+    }
+    case "programa_viaje":
+      partes.push(d.corresponde ? `Programa de viaje presentado${d.archivos ? ` · ${d.archivos} archivo(s) adjunto(s)` : ""}${d.itinerario ? `: ${d.itinerario}` : ""}` : "No corresponde presentar programa de viaje");
+      break;
+    case "aprobar_preparacion":
+      partes.push("Aprobación de la preparación registrada");
       break;
     case "probar_equipos":
       partes.push(d.resultado === "observado" ? "Con observaciones" : "Todo operativo");
@@ -223,6 +253,52 @@ function Resumen({ clave, r }: { clave: string; r: PasoRegistro }) {
 }
 
 /** Capacitador y asistente: vienen de la programación; solo se ofrecen personas sin cruce de horario. */
+async function PlantillasProgramaViaje() {
+  const plantillas = await listarPlantillasViaje();
+  return <section className="space-y-2 rounded-lg border border-borde bg-[#f3f6fa] p-3">
+    <h4 className="text-sm font-semibold text-marino">Plantilla del programa de viaje</h4>
+    {plantillas.length ? <>
+      <p className="text-xs text-texto-2">Descarga la plantilla, complétala y sube el archivo terminado aquí abajo.</p>
+      <ul className="space-y-2">{plantillas.map((nombre) => <li key={nombre}><a href={`/api/plantillas/programa-viaje?archivo=${encodeURIComponent(nombre)}`} className="btn-secundario inline-flex text-sm">⬇ Descargar plantilla · {nombre}</a></li>)}</ul>
+    </> : <p className="text-xs text-texto-2">La plantilla aún no está disponible.</p>}
+  </section>;
+}
+
+function ArchivosProgramaViaje({ e }: { e: Exp }) {
+  const ids = e.ctx.pasos.programa_viaje?.documentos;
+  if (!Array.isArray(ids)) return null;
+  const docs = e.docs.filter((d) => ids.includes(d.id));
+  return <ul className="space-y-1 text-sm">{docs.map((d) => <li key={d.id}><a href={enlaceDoc(d)} className="enlace">⬇ {d.nombre}</a></li>)}</ul>;
+}
+
+function ResumenAsistente({ e }: { e: Exp }) {
+  const pasos = e.ctx.pasos;
+  const solicitados = recursosDe(pasos.solicitar_recursos?.recursos);
+  const aprobados = recursosDe(pasos.revisar_recursos?.recursos);
+  const revision = pasos.revisar_recursos;
+  const viaje = pasos.programa_viaje;
+  const lista = (recursos: typeof aprobados) => recursos.length
+    ? <ul className="list-disc space-y-1 pl-5">{recursos.map((r, i) => <li key={i}>{r.cantidad} unidades · {r.descripcion}{r.detalle && <p className="break-words text-xs text-texto-2">Detalles: {r.detalle}</p>}</li>)}</ul>
+    : <p>No se requieren recursos.</p>;
+  return <section aria-label="Resumen de la preparación del asistente" className="space-y-3 rounded-lg border border-borde bg-[#f3f6fa] p-4 text-sm">
+    <h4 className="font-semibold text-marino">Resumen de lo presentado</h4>
+    <p>Lista de asistencia: <strong>{pasos.imprimir_ficha ? "Impresión confirmada" : "Pendiente"}</strong></p>
+    {pasos.imprimir_ficha?.copiasEntrada != null && <p>Examen de entrada: <strong>{Number(pasos.imprimir_ficha.copiasEntrada)} copias impresas</strong></p>}
+    {pasos.imprimir_ficha?.copiasSalida != null && <p>Examen de salida: <strong>{Number(pasos.imprimir_ficha.copiasSalida)} copias impresas</strong></p>}
+    <div className="grid gap-4 md:grid-cols-2">
+      <div><h5 className="mb-2 font-semibold">Recursos solicitados</h5>{lista(solicitados)}</div>
+      <div><h5 className="mb-2 font-semibold">Recursos aprobados por Gestión Documental</h5>{revision ? lista(aprobados) : <p>Pendiente de revisión.</p>}</div>
+    </div>
+    <div className="grid gap-4 md:grid-cols-2">
+      <div><h5 className="mb-2 font-semibold">Equipos solicitados</h5>{recursosDe(pasos.solicitar_recursos?.equipos).length ? lista(recursosDe(pasos.solicitar_recursos?.equipos)) : <p>No se requieren equipos.</p>}</div>
+      <div><h5 className="mb-2 font-semibold">Equipos aprobados por Gestión Documental</h5>{!revision ? <p>Pendiente de revisión.</p> : recursosDe(revision.equipos).length ? lista(recursosDe(revision.equipos)) : <p>No se requieren equipos.</p>}</div>
+    </div>
+    {typeof revision?.obs === "string" && <p>Comentario: {revision.obs}</p>}
+    <p>Coordinación con el asistente: <strong>{revision?.coordinadoAsistente ? "Confirmada" : "Pendiente"}</strong></p>
+    <div><h5 className="font-semibold">Programa de viaje</h5><p className="whitespace-pre-wrap">{viaje ? viaje.corresponde ? String(viaje.itinerario || "Programa presentado en archivo adjunto.") : "No corresponde." : "Pendiente de definir."}</p>{viaje?.corresponde === true && <ArchivosProgramaViaje e={e} />}</div>
+  </section>;
+}
+
 function CamposPersonal({ e }: { e: Exp }) {
   // Solo se ofrecen personas SIN cruce de horario ese día
   const caps = e.consultores.filter((c) => !e.ocupadosCap.has(c.id));
@@ -376,29 +452,14 @@ function Campos({ clave, e }: { clave: string; e: Exp }) {
         </>
       );
     case "dinamicas": {
-      return (
-        <>
-          <label className="flex items-start gap-2 text-sm">
-            <input type="checkbox" name="dinamicasImpresas" value="si" required className="mt-1" />
-            Confirmo que ya imprimí las dinámicas de esta sesión.
-          </label>
-          <MaterialesAdicionales />
-        </>
-      );
+      return <ImpresionDinamicas />;
     }
     case "examen": {
-      const doc = e.docs.find((d) => d.tipo === (e.ctx.examen === "salida" ? "examen_salida" : "examen_entrada"));
       return (
-        <div className="flex flex-wrap items-end gap-3 text-[13px]">
-          <p className="w-full">
-            Esta es la <strong>{e.ctx.examen === "entrada" ? "primera" : e.ctx.examen === "salida" ? "última" : "única"}</strong> sesión: imprimir examen {EXAMEN[e.ctx.examen ?? "entrada"]}.
-            {doc ? <> <a href={enlaceDoc(doc)} target={doc.archivo ? undefined : "_blank"} rel="noreferrer" className="enlace">⬇ {doc.nombre}</a></> : " (No hay examen en el repositorio.)"}
-          </p>
-          <div className="w-full sm:w-40">
-            <label htmlFor="f-cant" className="etiqueta">Copias impresas</label>
-            <input id="f-cant" name="cantidad" type="number" min={0} defaultValue={e.inscritos} className="campo py-2" />
-          </div>
-        </div>
+        <label className="flex items-start gap-2 text-sm">
+          <input type="checkbox" name="examenCoordinado" value="si" required className="mt-1" />
+          Confirmo que ya coordiné con el asistente la impresión del examen {EXAMEN[e.ctx.examen ?? "entrada"]} de esta sesión.
+        </label>
       );
     }
     case "guardar_material":
@@ -417,11 +478,33 @@ function Campos({ clave, e }: { clave: string; e: Exp }) {
       );
     case "imprimir_ficha":
       return (
-        <div className="flex flex-wrap gap-3 text-[13px]">
-          <Link href={`/operativo/capacitaciones/${e.p.id}/ficha`} target="_blank" className="enlace">🖨 Ficha de capacitación</Link>
+        <div className="flex flex-col gap-3 text-[13px]">
           <Link href={`/operativo/capacitacion/${e.p.id}/imprimir`} target="_blank" className="enlace">🖨 Lista de asistencia</Link>
+          <label className="flex items-start gap-2 text-sm"><input type="checkbox" name="listaImpresa" value="si" required className="mt-1" />Confirmo que ya imprimí la lista de asistencia de esta sesión.</label>
+          {e.ctx.examen && <fieldset className="grid gap-3 rounded-lg border border-borde p-3 sm:grid-cols-2">
+            <legend className="px-1 font-semibold text-marino">Copias de exámenes impresas</legend>
+            {(e.ctx.examen === "entrada" || e.ctx.examen === "ambos") && <div><label htmlFor="copias-entrada" className="etiqueta">Examen de entrada</label><input id="copias-entrada" name="copiasEntrada" type="number" min={1} step={1} required defaultValue={e.inscritos || ""} className="campo" /></div>}
+            {(e.ctx.examen === "salida" || e.ctx.examen === "ambos") && <div><label htmlFor="copias-salida" className="etiqueta">Examen de salida</label><input id="copias-salida" name="copiasSalida" type="number" min={1} step={1} required defaultValue={e.inscritos || ""} className="campo" /></div>}
+            <p className="text-xs text-texto-2 sm:col-span-2">Se propone una copia por inscrito. Ajusta la cantidad según las copias que realmente imprimiste.</p>
+          </fieldset>}
         </div>
       );
+    case "solicitar_recursos":
+      return <SolicitudRecursos />;
+    case "revisar_recursos":
+      return <>
+        <SolicitudRecursos iniciales={recursosDe(pasos.solicitar_recursos?.recursos)} equiposIniciales={recursosDe(pasos.solicitar_recursos?.equipos)} revision />
+        <label className="etiqueta">Comentario de la revisión (opcional)<textarea name="obs" maxLength={2000} className="campo" rows={2} placeholder="Indica los ajustes o acuerdos realizados." /></label>
+        <label className="flex items-start gap-2 text-sm"><input type="checkbox" name="coordinadoAsistente" value="si" required className="mt-1" />Confirmo que ya coordiné los requerimientos con el asistente.</label>
+        <label className="flex items-start gap-2 text-sm"><input type="checkbox" name="recursosAprobados" value="si" required className="mt-1" />Apruebo los requerimientos tal como se muestran.</label>
+      </>;
+    case "programa_viaje":
+      return <ProgramaViaje programacionId={e.p.id} plantillas={<PlantillasProgramaViaje />} />;
+    case "aprobar_preparacion":
+      return <>
+        <ResumenAsistente e={e} />
+        <label className="flex items-start gap-2 text-sm"><input type="checkbox" name="conforme" value="si" required className="mt-1" />Como responsable de Gestión Documental, apruebo la preparación: lista impresa, recursos y equipos aprobados, coordinación y programa de viaje cuando corresponde.</label>
+      </>;
     case "alistar_material": {
       const pend = e.items.filter((i) => !i.listo).length;
       return (
@@ -1086,9 +1169,13 @@ const BOTON: Record<string, string> = {
   gestionar_carpeta: "✓ Registrar sesión cerrada",
   comunicar: "Validar y comunicar",
   descargar_material: "Material descargado",
-  examen: "Examen impreso",
+  examen: "Examen coordinado con el asistente",
   guardar_material: "Registrar",
   imprimir_ficha: "Impresión realizada",
+  solicitar_recursos: "Enviar solicitud de recursos",
+  revisar_recursos: "Aprobar requerimientos y coordinación",
+  programa_viaje: "Registrar programa de viaje",
+  aprobar_preparacion: "Aprobar preparación",
   alistar_material: "Material alistado",
   probar_equipos: "Registrar prueba",
   solicitar_viaticos: "Solicitar viáticos",
@@ -1127,6 +1214,8 @@ function Tarjeta({ s, n, e, est, u, href }: { s: EstadoItem; n: number; e: Exp; 
         <p className="text-xs text-texto-2">{s.descripcion}</p>
         {s.nota && <p className="text-xs italic text-[#6b7280]">📝 {s.nota}</p>}
         {s.clave === "validar_programacion" && <ResumenProgramacion e={e} u={u} />}
+        {s.clave === "aprobar_preparacion" && s.estado !== "disponible" && <ResumenAsistente e={e} />}
+        {s.clave === "programa_viaje" && s.estado === "hecho" && <ArchivosProgramaViaje e={e} />}
 
         {s.estado === "hecho" && reg && (
           <div className="flex items-start justify-between gap-2">
@@ -1195,7 +1284,8 @@ export default async function Expediente({ params, searchParams }: PageProps<"/o
   // ── Navegación por actividad: el gráfico y las flechas abren una actividad a la vez ──
   const orden = etapas.flatMap((et) => porEtapa[et].estados);
   const hrefPaso = (c: string) => `/operativo/capacitaciones/${p.id}?vista=${vista}&paso=${c}`;
-  const pedida = typeof sp.paso === "string" ? orden.find((s) => s.clave === sp.paso) : undefined;
+  const pasoSolicitado = sp.paso === "conformidad_asistente" ? "aprobar_preparacion" : sp.paso;
+  const pedida = typeof pasoSolicitado === "string" ? orden.find((s) => s.clave === pasoSolicitado) : undefined;
   const pendiente = orden.find((s) => s.estado === "disponible" && puedeRegistrarPaso(u.roles, s.roles)) ?? orden.find((s) => s.estado === "disponible");
   const foco = pedida ?? pendiente;
   const iFoco = foco ? orden.findIndex((s) => s.clave === foco.clave) : -1;
@@ -1292,7 +1382,7 @@ export default async function Expediente({ params, searchParams }: PageProps<"/o
         titulo={[p.sesion.nombre, ...combinadas(p)].join(" + ")}
         acciones={
           <details className="relative">
-            <summary className="btn-secundario cursor-pointer list-none py-2">Opciones ▾</summary>
+            <summary className="btn-secundario cursor-pointer list-none py-2">Formatos ▾</summary>
             <div className="absolute right-0 z-20 mt-1 flex w-56 flex-col rounded-lg border border-borde bg-white py-1 shadow-lg">
               {opciones.map((o) => (
                 <Link key={o.href} href={o.href} className="px-3.5 py-2 text-sm text-marino hover:bg-[#eef1f5]">{o.t}</Link>

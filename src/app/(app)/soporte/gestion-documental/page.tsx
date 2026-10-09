@@ -25,6 +25,7 @@ export default async function GestionDocumental({ searchParams }: PageProps<"/so
   const sp = await searchParams;
   const sesionSolicitada = Number(sp.sesion) || 0;
   const parte = sp.parte === "sesiones" ? "sesiones" : sp.parte === "fichas" ? "fichas" : "academico";
+  const detalleEntregables = parte === "sesiones" && Number(sp.programacion) > 0;
 
   const estructuras = await db.query.estructuras.findMany({ orderBy: (t, { asc }) => [asc(t.orden), asc(t.id)] });
   const proyectoSolicitado = Number(sp.proyecto) || Number(sp.estructura) || estructuras[0]?.id;
@@ -57,7 +58,7 @@ export default async function GestionDocumental({ searchParams }: PageProps<"/so
 
   // Bandeja: fichas esperando revisión de Gestión Documental, dentro del proyecto seleccionado
   const ctxs = await contextosDe(proximasProyecto);
-  const porRevisar = proximasProyecto.filter((p) => estadoPaso("revisar_ficha", ctxs.get(p.id)!) === "disponible");
+  const porRevisar = proximasProyecto.filter((p) => estadoPaso("revisar_recursos", ctxs.get(p.id)!) === "disponible");
 
   const visibles = docs.filter((d) => {
     const academico = !d.programacionId && TIPOS_ACADEMICOS.has(d.tipo);
@@ -124,23 +125,23 @@ export default async function GestionDocumental({ searchParams }: PageProps<"/so
           href={hrefParte("fichas")}
           className={`rounded-t-lg px-4 py-3 text-sm font-semibold transition-colors ${parte === "fichas" ? "border-b-2 border-marino bg-white text-marino" : "text-texto-2 hover:bg-[#eef1f5] hover:text-marino"}`}
         >
-          Fichas por revisar <span className="ml-1 rounded-full bg-[#fce7f3] px-2 py-0.5 text-xs text-[#9d174d]">{porRevisar.length}</span>
+          Requerimientos por revisar <span className="ml-1 rounded-full bg-[#fce7f3] px-2 py-0.5 text-xs text-[#9d174d]">{porRevisar.length}</span>
         </Link>
       </nav>
 
       {parte === "fichas" && (
       <section className="card">
         <h2 className="border-b border-borde px-6 py-4 text-lg font-semibold text-marino">
-          Fichas por revisar <span className="ml-1 rounded-full bg-[#fce7f3] px-2 py-0.5 text-sm text-[#9d174d]">{porRevisar.length}</span>
+          Requerimientos por revisar <span className="ml-1 rounded-full bg-[#fce7f3] px-2 py-0.5 text-sm text-[#9d174d]">{porRevisar.length}</span>
         </h2>
         {porRevisar.length === 0 ? (
-          <Vacio>No hay fichas de capacitación esperando revisión.</Vacio>
+          <Vacio>No hay requerimientos esperando revisión.</Vacio>
         ) : (
           <ul>
             {porRevisar.map((p) => (
               <li key={p.id} className="flex flex-wrap items-center justify-between gap-3 border-b border-[#eef1f5] px-6 py-3 last:border-0">
                 <span className="text-sm"><strong>{fechaCorta(p.fecha)}</strong> · {p.sesion.nombre} · {p.sede.nombre}</span>
-                <Link href={`/operativo/capacitaciones/${p.id}#ficha`} className="btn-secundario py-2 text-[13px]">Revisar ficha</Link>
+                <Link href={`/operativo/capacitaciones/${p.id}?vista=pre&paso=revisar_recursos`} className="btn-secundario py-2 text-[13px]">Revisar requerimientos</Link>
               </li>
             ))}
           </ul>
@@ -150,13 +151,13 @@ export default async function GestionDocumental({ searchParams }: PageProps<"/so
 
       {parte !== "fichas" && <>
       <h2 className="mt-2 text-xl font-bold text-marino">{parte === "academico" ? "Material Académico y exámenes" : "Entregable de sesiones"}</h2>
-      <p className="-mt-4 text-sm text-texto-2">
+      {!detalleEntregables && <p className="-mt-4 text-sm text-texto-2">
         {parte === "academico"
           ? "Material organizado por componente, actividad, módulo y sesión. Cada archivo queda asociado a la sesión correspondiente."
           : "Entregables organizados por sesión, fecha y sede: diapositivas, talleres o prácticas, asistencia, exámenes cuando correspondan, fotos, videos y viáticos."}
-      </p>
+      </p>}
 
-      <form key={`${proyecto?.id}:${parte}:${sesionSel}`} className="flex items-end gap-3">
+      {!detalleEntregables && <form key={`${proyecto?.id}:${parte}:${sesionSel}`} className="flex items-end gap-3">
         <input type="hidden" name="parte" value={parte} />
         {proyecto && <input type="hidden" name="proyecto" value={proyecto.id} />}
         <div className="w-96">
@@ -167,7 +168,7 @@ export default async function GestionDocumental({ searchParams }: PageProps<"/so
           </select>
         </div>
         <button className="btn-secundario">Filtrar</button>
-      </form>
+      </form>}
 
       {parte === "academico" ? (
         <div className="space-y-4">
