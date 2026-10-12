@@ -66,12 +66,16 @@ export type DefPaso = {
 export const FASES: Record<DefPaso["fase"], string> = {
   1: "Validación de la programación",
   2: "Preparación de la sesión",
-  3: "Salida a sede",
+  3: "Aprobación de la preparación",
   4: "Cierre de la sesión",
   5: "Entregables",
   6: "Documentación y entregable",
   7: "Revisión y cierre",
 };
+
+export function nombreFase(etapa: Etapa, fase: DefPaso["fase"]) {
+  return etapa === "post" ? ({ 1: "Datos de Capacitación", 2: "Entregables" } as Record<number, string>)[fase] ?? FASES[fase] : FASES[fase];
+}
 
 export const PASOS: DefPaso[] = [
   {
@@ -80,29 +84,6 @@ export const PASOS: DefPaso[] = [
     titulo: "Validar la programación",
     descripcion: "Revisa el programa, las sesiones, la fecha, el horario, la sede y el personal asignado. Si detectas un error, edita los datos en el cronograma antes de validar.",
     etapa: "pre", fase: 1, carril: "general", rol: "jefe_proyecto", requiere: [],
-  },
-  {
-    clave: "dinamicas",
-    corto: "Comunicación y/o coordinación para la impresión de dinámicas",
-    titulo: "Comunicación y/o coordinación para la impresión de dinámicas",
-    descripcion: "Marca la casilla para confirmar que ya comunicaste y/o coordinaste la impresión de las dinámicas de esta sesión.",
-    etapa: "pre", fase: 2, carril: "capacitador", rol: "capacitador", requiere: ["validar_programacion"],
-  },
-  {
-    clave: "examen",
-    corto: "Coordinación del examen con el asistente",
-    titulo: "Coordinación con el asistente para la impresión del examen de entrada o salida",
-    descripcion: "Marca la casilla para confirmar que ya coordinaste con el asistente la impresión del examen correspondiente. Solo aplica en la primera o la última sesión de la capacitación.",
-    etapa: "pre", fase: 2, carril: "capacitador", rol: "capacitador", requiere: ["dinamicas"],
-    aplica: (c) => c.examen !== null,
-  },
-  {
-    clave: "guardar_material",
-    corto: "Guardar",
-    titulo: "Guardar material didáctico en medio seguro e imprimir talleres",
-    descripcion: "Registrar el medio donde se guardó el material.",
-    etapa: "pre", fase: 2, carril: "capacitador", rol: "capacitador", requiere: ["dinamicas", "examen"],
-    nota: "El medio seguro puede ser USB, nube o WhatsApp",
   },
   // ── Fase 2 · Asistente y áreas de apoyo ─────────────────
   {
@@ -138,138 +119,42 @@ export const PASOS: DefPaso[] = [
     corto: "Aprobación",
     titulo: "Aprobación de la preparación por Gestión Documental",
     descripcion: "Gestión Documental revisa el resumen de la lista impresa, los recursos y equipos aprobados, la coordinación y el programa de viaje, y aprueba la preparación.",
-    etapa: "pre", fase: 2, carril: "asistente", rol: "gestion_documental", requiere: ["programa_viaje"],
-  },
-  // ── Fase 3 ───────────────────────────────────────────────
-  {
-    clave: "lista",
-    corto: "Sale a sede",
-    titulo: "Sesión lista, sale a sede",
-    descripcion: "Todas las actividades completas: la sesión queda confirmada.",
-    etapa: "pre", fase: 3, carril: "general", rol: "jefe_proyecto", requiere: ["guardar_material", "aprobar_preparacion"],
+    etapa: "pre", fase: 3, carril: "general", rol: "gestion_documental", requiere: ["programa_viaje"],
   },
   // ══ POST-CAPACITACIÓN ════════════════════════════════════
-  // ── Fase 4 · Jefe de Proyectos ──────────────────────────
   {
-    clave: "sesion_realizada",
-    corto: "¿Realizada?",
-    titulo: "¿Se realizó la sesión?",
-    descripcion: "Sesión concluida o no realizada. Si no se realizó, se reprograma y el flujo termina.",
-    etapa: "post", fase: 4, carril: "general", rol: "jefe_proyecto", requiere: ["lista"],
+    clave: "datos_capacitacion",
+    corto: "Datos",
+    titulo: "Datos generales de la capacitación",
+    descripcion: "Indica si se ejecutó la capacitación, los horarios reales y los tipos y detalles de las incidencias. Confirma los datos registrados.",
+    etapa: "post", fase: 1, carril: "general", rol: "asistente", requiere: ["aprobar_preparacion"],
   },
   {
-    clave: "solicitar_entregables",
-    corto: "Entregables",
-    titulo: "Solicitar entregables por NextCloud",
-    descripcion: "Pedir al capacitador y al asistente sus entregables de la sesión.",
-    etapa: "post", fase: 4, carril: "general", rol: "jefe_proyecto", requiere: ["sesion_realizada"],
+    clave: "recursos_post",
+    corto: "Recursos",
+    titulo: "Recursos",
+    descripcion: "Registra las unidades de retorno de los recursos y equipos llevados a la capacitación y confirma las cantidades.",
+    etapa: "post", fase: 2, carril: "asistente", rol: "asistente", requiere: ["datos_capacitacion"],
   },
-  // ── Fase 5 · Capacitador ────────────────────────────────
-  {
-    clave: "corregir_examenes",
-    corto: "Corregir exám.",
-    titulo: "Corregir los exámenes",
-    descripcion: "Solo si la sesión tuvo examen (primera o última sesión de la capacitación).",
-    etapa: "post", fase: 5, carril: "capacitador", rol: "capacitador", requiere: ["solicitar_entregables"],
-    aplica: (c) => c.examen !== null,
-  },
-  {
-    clave: "enviar_examenes",
-    corto: "Enviar exám.",
-    titulo: "Enviar los exámenes corregidos al asistente",
-    descripcion: "El envío se hace por NextCloud.",
-    etapa: "post", fase: 5, carril: "capacitador", rol: "capacitador", requiere: ["corregir_examenes"],
-    aplica: (c) => c.examen !== null,
-    nota: "El envío se hará por el medio NextCloud",
-  },
-  // ── Fase 5 · Asistente y Administradora ─────────────────
-  {
-    clave: "reportar_incidencias",
-    corto: "Incidencias",
-    titulo: "Reportar las incidencias al Jefe de Proyecto por NextCloud",
-    descripcion: "Lo ocurrido en la sesión: retrasos, problemas con el local, equipos, participantes…",
-    etapa: "post", fase: 5, carril: "asistente", rol: "asistente", requiere: ["solicitar_entregables"],
-  },
-  {
-    clave: "llenar_ficha2",
-    corto: "Ficha 2da",
-    titulo: "Llenar la 2da sección de la ficha",
-    descripcion: "Hora de llegada, inicio y término reales, incidencias y observaciones del capacitador.",
-    etapa: "post", fase: 5, carril: "asistente", rol: "asistente", requiere: ["reportar_incidencias"],
-  },
-  {
-    clave: "registrar_asistencia",
-    corto: "Asistencia",
-    titulo: "Registrar la lista de asistencia en el sistema",
-    descripcion: "Pasar la lista firmada a la lista de asistencia de la sesión.",
-    etapa: "post", fase: 5, carril: "asistente", rol: "asistente", requiere: ["llenar_ficha2"],
-  },
-  {
-    clave: "rendir_viaticos",
-    corto: "Liquidar viát.",
-    titulo: "Llenar la liquidación de viáticos y enviarla a Administración",
-    descripcion: "Formato «Liquidación de viáticos» (ACIDE-A&A-F-02): ya viene con tus datos, la sesión, el monto entregado y los gastos de la 2da sección; completa comprobantes y descarga el formato lleno.",
-    etapa: "post", fase: 5, carril: "asistente", rol: "asistente", requiere: ["registrar_asistencia"],
-  },
-  {
-    clave: "recibir_rendicion",
-    corto: "Recibir rend.",
-    titulo: "Recibir la liquidación de viáticos",
-    descripcion: "Administración revisa la liquidación (puede descargar el formato lleno) y la da por recibida. Corre en paralelo al resto del cierre.",
-    etapa: "post", fase: 5, carril: "asistente", rol: "administradora", rolesAlternos: ["jefe_proyecto"], requiere: ["rendir_viaticos"],
-  },
-  // ── Fase 6 · Asistente ──────────────────────────────────
   {
     clave: "escanear_subir",
-    corto: "Evidencias",
-    titulo: "Escanear y subir formatos, fotos y video al sistema",
-    descripcion: "Formatos firmados escaneados, fotos y video de la sesión.",
-    etapa: "post", fase: 6, carril: "general", rol: "asistente", requiere: ["rendir_viaticos", "enviar_examenes"],
+    corto: "Entregables",
+    titulo: "Entregables",
+    descripcion: "Adjunta diapositivas, talleres o prácticas, lista de asistencia, exámenes cuando correspondan, fotos y videos. Confirma los entregables.",
+    etapa: "post", fase: 2, carril: "asistente", rol: "asistente", requiere: ["recursos_post"],
+    aplica: (c) => c.pasos.datos_capacitacion?.realizada !== false,
   },
+  // ── Fase 4 · Jefe de Proyectos ──────────────────────────
+  // ── Fase 5 · Asistente y Administradora ─────────────────
   {
-    clave: "imprimir_ficha_digital",
-    corto: "Imprimir",
-    titulo: "Imprimir la ficha de capacitación digital",
-    descripcion: "Con la 1ra y la 2da sección completas.",
-    etapa: "post", fase: 6, carril: "general", rol: "asistente", requiere: ["escanear_subir"],
+    clave: "rendir_viaticos",
+    corto: "Viáticos",
+    titulo: "Viáticos",
+    descripcion: "Selecciona gastos de pasajes, recursos u otros, indica los importes en soles y confirma el total de viáticos.",
+    etapa: "post", fase: 2, carril: "asistente", rol: "asistente", requiere: ["escanear_subir"],
   },
-  {
-    clave: "revisar_documentacion",
-    corto: "Revisar docs",
-    titulo: "Revisar toda la documentación",
-    descripcion: "Confirmar los documentos físicos antes de armar la mica; viene de lo declarado en la 2da sección.",
-    etapa: "post", fase: 6, carril: "general", rol: "asistente", requiere: ["imprimir_ficha_digital"],
-  },
-  {
-    clave: "elaborar_entregable",
-    corto: "Mica G.D.",
-    titulo: "Elaborar el entregable y entregar al encargado de G.D.",
-    descripcion: "La mica con toda la documentación (ficha de capacitación, exámenes…).",
-    etapa: "post", fase: 6, carril: "general", rol: "asistente", requiere: ["revisar_documentacion"],
-    nota: "Se considera entregable a la mica con toda la documentación puesta (ficha de capacitación, exámenes…)",
-  },
+  // ── Fase 6 · Asistente ──────────────────────────────────
   // ── Fase 7 · Gestión Documental y Jefe de Proyectos ─────
-  {
-    clave: "contrastar_inventario",
-    corto: "Contraste",
-    titulo: "Contrastar el inventario y revisar la 2da sección — ¿Cuadra?",
-    descripcion: "Lo que salió según la ficha contra lo que volvió y el estado de cada equipo. Si no cuadra, vuelve al asistente.",
-    etapa: "post", fase: 7, carril: "general", rol: "gestion_documental", requiere: ["elaborar_entregable"],
-  },
-  {
-    clave: "actualizar_inventario",
-    corto: "Aprobar",
-    titulo: "Aprobar la 2da sección y actualizar el inventario",
-    descripcion: "Al aprobar, el material devuelto vuelve al stock de Logística y los equipos con falla pasan a Mantenimiento.",
-    etapa: "post", fase: 7, carril: "general", rol: "jefe_proyecto", requiere: ["contrastar_inventario"],
-  },
-  {
-    clave: "gestionar_carpeta",
-    corto: "Carpeta física",
-    titulo: "Gestionar la carpeta física",
-    descripcion: "Archivar el entregable. Registro de la sesión cerrada.",
-    etapa: "post", fase: 7, carril: "general", rol: "jefe_proyecto", requiere: ["actualizar_inventario"],
-  },
 ];
 
 export const PASO = Object.fromEntries(PASOS.map((p) => [p.clave, p])) as Record<string, DefPaso>;
@@ -316,9 +201,9 @@ export function resumenFlujo(c: ContextoFlujo, vista: Vista = "pre") {
     porcentaje: aplicables.length ? Math.round((hechos * 100) / aplicables.length) : 0,
     pendientes,
     /** Pre-capacitación completa: la sesión sale a sede */
-    terminado: estadoPaso("lista", c) === "hecho",
+    terminado: estadoPaso("aprobar_preparacion", c) === "hecho",
     /** Post-capacitación completa: la sesión quedó cerrada */
-    cerrada: estadoPaso("gestionar_carpeta", c) === "hecho",
+    cerrada: estadoPaso("rendir_viaticos", c) === "hecho",
     /** La sesión no se realizó: se reprograma y la post-capacitación termina */
     noRealizada: noRealizada(c),
     reprogramada: false,
@@ -327,5 +212,5 @@ export function resumenFlujo(c: ContextoFlujo, vista: Vista = "pre") {
 
 /** Etapa en la que está la sesión ahora (para abrir el expediente y la bandeja en la vista correcta). */
 export function etapaActual(c: ContextoFlujo): Etapa {
-  return estadoPaso("lista", c) === "hecho" ? "post" : "pre";
+  return estadoPaso("aprobar_preparacion", c) === "hecho" ? "post" : "pre";
 }

@@ -33,6 +33,8 @@ import { borrarArchivo } from "@/lib/archivos";
 import { guardarLiquidacionDb, leerLiquidacion } from "@/lib/liquidacion-db";
 import { saldo, totalGastos } from "@/lib/liquidacion";
 import { leerRecursos, leerEquipos, recursosDe } from "@/lib/recursos-sesion";
+import { leerDatosPost, leerRetornos } from "@/lib/post-sesion";
+import { seccionDe } from "@/lib/documentos";
 
 export type Res = { ok?: string; error?: string } | undefined;
 
@@ -299,6 +301,7 @@ export async function registrarPaso(_prev: Res, f: FormData): Promise<Res> {
       reg.viajeCorresponde = pasos.programa_viaje?.corresponde === true;
       reg.itinerario = pasos.programa_viaje?.itinerario ?? null;
       reg.documentosViaje = pasos.programa_viaje?.documentos ?? [];
+      if (p.estado !== "cancelada") await db.update(programaciones).set({ estado: "confirmada" }).where(eq(programaciones.id, id));
       break;
 
     case "alistar_material": {
@@ -368,6 +371,28 @@ export async function registrarPaso(_prev: Res, f: FormData): Promise<Res> {
       break;
 
     /* ── Post-capacitación ── */
+    case "datos_capacitacion": {
+      if (txt(f, "datosConfirmados") !== "si") return { error: "Confirma los datos de la capacitación realizada." };
+      const datos = leerDatosPost(f);
+      if (datos.error) return { error: datos.error };
+      Object.assign(reg, datos.datos);
+      reg.confirmados = true;
+      reg.fecha = p.fecha;
+      reg.sedeId = p.sedeId;
+      reg.sesionId = p.sesionId;
+      break;
+    }
+    case "recursos_post": {
+      if (txt(f, "recursosRevisados") !== "si") return { error: "Confirma la revisión de los recursos y equipos." };
+      reg.recursos = recursosDe(pasos.revisar_recursos?.recursos);
+      reg.equipos = recursosDe(pasos.revisar_recursos?.equipos);
+      const resultado = leerRetornos(f, [{ prefijo: "recurso", items: reg.recursos as ReturnType<typeof recursosDe> }, { prefijo: "equipo", items: reg.equipos as ReturnType<typeof recursosDe> }]);
+      if (resultado.error) return { error: resultado.error };
+      reg.retornos = resultado.retornos;
+      reg.obs = txt(f, "obs") || null;
+      reg.revisados = true;
+      break;
+    }
     case "sesion_realizada": {
       if (siNo === null) return { error: "Indica si la sesión se realizó." };
       reg.realizada = siNo;
@@ -490,6 +515,7 @@ export async function registrarPaso(_prev: Res, f: FormData): Promise<Res> {
     }
 
     case "rendir_viaticos": {
+      if (txt(f, "viaticosConfirmados") !== "si") return { error: "Confirma los tipos, importes y total de viáticos." };
       // La liquidación (formato ACIDE-A&A-F-02) se llena en el mismo paso y queda guardada para descargarla
       const liq = leerLiquidacion(txt(f, "liquidacion"));
       if (typeof liq === "string") return { error: liq };
@@ -500,6 +526,8 @@ export async function registrarPaso(_prev: Res, f: FormData): Promise<Res> {
       reg.saldo = saldo(liq);
       reg.lineas = liq.lineas.length;
       reg.sinComprobante = liq.lineas.filter((l) => !l.comprobante).length;
+      reg.liquidacion = liq;
+      await db.update(programaciones).set({ estado: "finalizada" }).where(eq(programaciones.id, id));
       break;
     }
 
@@ -508,9 +536,18 @@ export async function registrarPaso(_prev: Res, f: FormData): Promise<Res> {
       break;
 
     case "escanear_subir": {
-      const n = await asociarDocs(docsSubidos(f), id, { subidoPor: por });
-      if (!n) return { error: "Sube al menos un archivo (formatos escaneados, fotos o video)." };
-      reg.archivos = n;
+      if (txt(f, "entregablesConfirmados") !== "si") return { error: "Confirma los documentos entregables de la capacitación." };
+      const docs = await db.query.documentos.findMany({ where: eq(documentos.programacionId, id) });
+      const requeridos = ["diapositivas", "talleres", "lista_asistencia", "fotos", "video"];
+      if (ctx.examen) requeridos.push("examen");
+      const faltantes = requeridos.filter((seccion) => !docs.some((d) => seccionDe(d) === seccion));
+      if (faltantes.length) return { error: `Faltan archivos en: ${faltantes.join(", ")}.` };
+      if (ctx.examen === "ambos" && (!["examen_entrada", "examen_salida"].every((tipo) => docs.some((d) => d.tipo === tipo)))) return { error: "Adjunta los exámenes de entrada y de salida." };
+      await asociarDocs(docsSubidos(f), id, { subidoPor: por });
+      reg.archivos = docs.filter((d) => requeridos.includes(seccionDe(d))).length;
+      reg.confirmados = true;
+      reg.categorias = requeridos;
+      reg.documentos = docs.filter((d) => requeridos.includes(seccionDe(d))).map((d) => d.id);
       break;
     }
 
@@ -705,7 +742,7 @@ export async function deshacerPaso(f: FormData) {
   if (clave === "actualizar_inventario") {
     await db.delete(revisionesEquipo).where(eq(revisionesEquipo.programacionId, id));
   }
-  if (clave === "gestionar_carpeta") {
+  if (clave === "gestionar_carpeta" || clave === "rendir_viaticos") {
     await db.update(programaciones).set({ estado: "confirmada" }).where(eq(programaciones.id, id));
   }
   if (clave === "escanear_subir" || clave === "enviar_examenes") {

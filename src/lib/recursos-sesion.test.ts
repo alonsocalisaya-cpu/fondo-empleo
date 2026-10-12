@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { leerRecursos, leerEquipos } from "./recursos-sesion";
-import { estadoPaso, PASO, type ContextoFlujo } from "./flujo-pre";
+import { estadoPaso, PASO, PASOS, resumenFlujo, type ContextoFlujo } from "./flujo-pre";
 
 function solicitud(recursos: [string, string, string][]) {
   const f = new FormData();
@@ -73,8 +73,38 @@ test("la salida requiere revisión documental, programa de viaje y conformidad d
   ctx.pasos.programa_viaje = { en: "2026-10-09", corresponde: false };
   assert.equal(estadoPaso("aprobar_preparacion", ctx), "disponible");
   assert.equal(PASO.aprobar_preparacion.rol, "gestion_documental");
-  ctx.pasos.guardar_material = { en: "2026-10-09" };
-  assert.equal(estadoPaso("lista", ctx), "bloqueado");
+  assert.equal(estadoPaso("datos_capacitacion", ctx), "bloqueado");
   ctx.pasos.aprobar_preparacion = { en: "2026-10-09", conforme: true };
-  assert.equal(estadoPaso("lista", ctx), "disponible");
+  assert.equal(estadoPaso("datos_capacitacion", ctx), "disponible");
+  assert.equal(PASO.aprobar_preparacion.fase, 3);
+  assert.equal(PASO.lista, undefined);
+});
+
+test("el flujo no incluye actividades del capacitador ni depende de ellas", () => {
+  assert.ok(PASOS.every((p) => p.rol !== "capacitador" && p.carril !== "capacitador"));
+  for (const paso of PASOS) for (const requisito of paso.requiere) assert.ok(PASO[requisito], `Dependencia inexistente: ${requisito}`);
+  const ctx: ContextoFlujo = { pasos: { rendir_viaticos: { en: "2026-10-12" } }, examen: "ambos", fueraDeArequipa: false };
+  assert.equal(resumenFlujo(ctx, "post").cerrada, true);
+  const sinHistorial = resumenFlujo(ctx, "completo");
+  ctx.pasos.dinamicas = { en: "2026-10-09" };
+  ctx.pasos.guardar_material = { en: "2026-10-09" };
+  ctx.pasos.enviar_examenes = { en: "2026-10-09" };
+  assert.deepEqual(resumenFlujo(ctx, "completo"), sinHistorial);
+});
+
+test("la post-capacitación contiene datos, recursos, entregables y viáticos", () => {
+  assert.deepEqual(PASOS.filter((p) => p.etapa === "post").map((p) => p.clave), ["datos_capacitacion", "recursos_post", "escanear_subir", "rendir_viaticos"]);
+  const ctx: ContextoFlujo = { pasos: { aprobar_preparacion: { en: "2026-10-12" } }, examen: null, fueraDeArequipa: false };
+  assert.equal(estadoPaso("datos_capacitacion", ctx), "disponible");
+  assert.equal(estadoPaso("recursos_post", ctx), "bloqueado");
+  ctx.pasos.datos_capacitacion = { en: "2026-10-12" };
+  assert.equal(estadoPaso("recursos_post", ctx), "disponible");
+  ctx.pasos.recursos_post = { en: "2026-10-12" };
+  assert.equal(estadoPaso("escanear_subir", ctx), "disponible");
+  assert.equal(estadoPaso("rendir_viaticos", ctx), "bloqueado");
+  ctx.pasos.escanear_subir = { en: "2026-10-12" };
+  assert.equal(estadoPaso("rendir_viaticos", ctx), "disponible");
+  assert.equal(resumenFlujo(ctx, "post").cerrada, false);
+  ctx.pasos.rendir_viaticos = { en: "2026-10-12" };
+  assert.equal(resumenFlujo(ctx, "post").cerrada, true);
 });

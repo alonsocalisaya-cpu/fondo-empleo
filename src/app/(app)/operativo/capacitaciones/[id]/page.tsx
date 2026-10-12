@@ -8,7 +8,7 @@ import { cargarExpediente } from "@/lib/preparacion";
 import { exigirUsuario, puedeVerSesion, type Usuario } from "@/lib/auth";
 import { puede, puedeEditarFicha, puedeRegistrarPaso } from "@/lib/permisos";
 import { ruta, combinadas } from "@/lib/consultas";
-import { ETAPAS, FASES, PASO, ROLES, etapaActual, resumenFlujo, type Etapa, type Vista } from "@/lib/flujo-pre";
+import { ETAPAS, nombreFase, PASO, ROLES, etapaActual, resumenFlujo, type Etapa, type Vista } from "@/lib/flujo-pre";
 import { fechaCorta, fechaLarga, hora, TURNO_LABEL } from "@/lib/fechas";
 import { ChipEstado, Encabezado, nombreCompleto } from "@/components/ui";
 import { BarraAvance, ChipRol } from "@/components/flujo";
@@ -19,7 +19,11 @@ import CampoAsistentes from "./CampoAsistentes";
 import ImpresionDinamicas from "./ImpresionDinamicas";
 import SolicitudRecursos from "./SolicitudRecursos";
 import ProgramaViaje from "./ProgramaViaje";
+import DatosPost from "./DatosPost";
+import ViaticosPost from "./ViaticosPost";
+import RegistroCompleto from "./RegistroCompleto";
 import { recursosDe } from "@/lib/recursos-sesion";
+import { ENTREGABLES as CATEGORIAS_ENTREGABLES } from "@/lib/entregables";
 import { listarPlantillasViaje } from "@/lib/plantillas-viaje";
 import { DOCUMENTOS_REVISION, ENTREGABLES, GASTOS, PREGUNTAS_PREPARACION, type Ficha2 } from "@/lib/ficha2";
 import FormPaso, { BotonesDecision, FormAccion, FormItem } from "./FormPaso";
@@ -31,7 +35,7 @@ export const metadata = { title: "Expediente de pre-capacitación" };
 type Exp = NonNullable<Awaited<ReturnType<typeof cargarExpediente>>>;
 type EstadoItem = ReturnType<typeof resumenFlujo>["estados"][number];
 
-function ResumenProgramacion({ e, u }: { e: Exp; u: Usuario }) {
+function ResumenProgramacion({ e, u, editable = true }: { e: Exp; u: Usuario; editable?: boolean }) {
   const { p } = e;
   const datos = [
     ["Región / estructura", p.sesion.modulo.actividad.componente.estructura.nombre],
@@ -49,7 +53,7 @@ function ResumenProgramacion({ e, u }: { e: Exp; u: Usuario }) {
     <section aria-label="Datos de programación" className="card flex flex-col gap-3 px-5 py-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="font-semibold text-marino">Programación de la capacitación</h3>
-        {puede(u.roles, "cronograma", "editar") && (
+        {editable && puede(u.roles, "cronograma", "editar") && (
           <Link
             href={`/estrategico/cronograma/${p.id}`}
             className="btn-secundario gap-2 rounded-lg px-4 py-2 text-sm shadow-sm transition-shadow hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-marino"
@@ -138,6 +142,17 @@ function Resumen({ clave, r }: { clave: string; r: PasoRegistro }) {
       partes.push("Lista de asistencia impresa · confirmación registrada");
       if (d.copiasEntrada != null) partes.push(`Examen de entrada: ${d.copiasEntrada} copias impresas`);
       if (d.copiasSalida != null) partes.push(`Examen de salida: ${d.copiasSalida} copias impresas`);
+      break;
+    case "datos_capacitacion":
+      partes.push(d.realizada === false ? "No se ejecutó la capacitación" : "Capacitación ejecutada");
+      if (d.horaInicioReal && d.horaFinReal) partes.push(`Horario real: ${d.horaInicioReal}–${d.horaFinReal}`);
+      if (Array.isArray(d.tiposIncidencia) && d.tiposIncidencia.length) partes.push(`Tipos de incidencia: ${d.tiposIncidencia.join(", ")}`);
+      if (d.incidencias) partes.push(`Incidencias: ${d.incidencias}`);
+      break;
+    case "recursos_post":
+      partes.push("Recursos y equipos revisados");
+      if (Array.isArray(d.retornos)) for (const r of d.retornos as { descripcion: string; llevado: number; retorno: number }[]) partes.push(`${r.descripcion}: llevados ${r.llevado}, retorno ${r.retorno}`);
+      if (d.obs) partes.push(`Observaciones: ${d.obs}`);
       break;
     case "solicitar_recursos":
     case "revisar_recursos": {
@@ -476,6 +491,20 @@ function Campos({ clave, e }: { clave: string; e: Exp }) {
           </label>
         </div>
       );
+    case "datos_capacitacion":
+      return <DatosPost />;
+    case "recursos_post": {
+      const recursos = recursosDe(pasos.revisar_recursos?.recursos);
+      const equipos = recursosDe(pasos.revisar_recursos?.equipos);
+      return <>
+        <div className="grid gap-4 md:grid-cols-2">{[{ nombre: "Recursos", prefijo: "recurso", items: recursos }, { nombre: "Equipos de cómputo", prefijo: "equipo", items: equipos }].map((grupo) => <section key={grupo.nombre} className="rounded-lg border border-borde p-3">
+          <h4 className="mb-2 font-semibold text-marino">{grupo.nombre}</h4>
+          {grupo.items.length ? <div className="space-y-3 text-sm">{grupo.items.map((r, i) => <div key={i} className="grid items-end gap-2 sm:grid-cols-[minmax(0,1fr)_7rem]"><div><p className="font-semibold">{r.descripcion}</p><p>Llevados: {r.cantidad} unidades</p>{r.detalle && <p className="text-xs text-texto-2">{r.detalle}</p>}</div><label className="etiqueta">Retorno<input name={`retorno-${grupo.prefijo}-${i}`} type="number" min={0} max={r.cantidad} step={1} required className="campo" placeholder="0" /></label></div>)}</div> : <p className="text-sm text-texto-2">Sin solicitudes.</p>}
+        </section>)}</div>
+        <label className="etiqueta">Observaciones (opcional)<textarea name="obs" className="campo" maxLength={2000} rows={3} placeholder="Indica observaciones sobre los recursos y equipos utilizados." /></label>
+        <label className="flex items-start gap-2 text-sm"><input type="checkbox" name="recursosRevisados" value="si" required className="mt-1" />Confirmo las cantidades de retorno de los recursos y equipos.</label>
+      </>;
+    }
     case "imprimir_ficha":
       return (
         <div className="flex flex-col gap-3 text-[13px]">
@@ -791,7 +820,7 @@ function Campos({ clave, e }: { clave: string; e: Exp }) {
     case "rendir_viaticos":
       return (
         <>
-          <FormLiquidacion programacionId={e.p.id} inicial={e.liquidacion.datos} guardada={e.liquidacion.guardada} />
+          <ViaticosPost inicial={e.liquidacion.datos} />
           <p className="text-xs text-texto-2">
             {e.liquidacion.guardada ? "Se muestra la liquidación guardada." : "Viene llena con los datos del sistema (asistente, sesión, monto entregado y gastos de la 2da sección)."} Al enviarla queda
             registrada y Administración la puede descargar.
@@ -811,29 +840,20 @@ function Campos({ clave, e }: { clave: string; e: Exp }) {
           <p className="text-xs text-texto-2">
             Cada grupo se guarda en su subcarpeta de esta fecha. Puedes elegir varios archivos a la vez.
           </p>
-          <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
-            <SubirArchivos
-              programacionId={e.p.id}
-              tipo="evidencia"
-              seccion="lista_asistencia"
-              etiqueta="📋 Lista de asistencia y formatos escaneados"
-              accept=".pdf,.jpg,.jpeg,.png,.heic,.zip,.doc,.docx,.xls,.xlsx"
-            />
-            <SubirArchivos
-              programacionId={e.p.id}
-              tipo="evidencia"
-              seccion="fotos"
-              etiqueta="📷 Fotos (registro fotográfico)"
-              accept=".jpg,.jpeg,.png,.heic,.zip"
-            />
-            <SubirArchivos
-              programacionId={e.p.id}
-              tipo="evidencia"
-              seccion="video"
-              etiqueta="🎥 Video (10 min)"
-              accept=".mp4,.mov,.avi,.3gp"
-            />
+          <div className="space-y-3">
+            {CATEGORIAS_ENTREGABLES.filter((categoria) => categoria.seccion !== "viaticos").map((categoria) => <section key={categoria.seccion} className="grid overflow-hidden rounded-lg border border-borde md:grid-cols-[14rem_minmax(0,1fr)]">
+              <h4 className="bg-[#f3f6fa] p-4 font-semibold text-marino">{categoria.titulo}</h4>
+              <div className="min-w-0 space-y-3 border-t border-borde p-4 md:border-l md:border-t-0">
+                {e.docs.filter((d) => seccionDe(d) === categoria.seccion).map((d) => <a key={d.id} href={enlaceDoc(d)} className="enlace block break-words">⬇ {d.nombre}</a>)}
+                {categoria.seccion === "examen"
+                  ? e.ctx.examen
+                    ? (["entrada", "salida"] as const).filter((tipo) => e.ctx.examen === tipo || e.ctx.examen === "ambos").map((tipo) => <SubirArchivos key={tipo} programacionId={e.p.id} tipo={`examen_${tipo}`} seccion="examen" etiqueta={`Subir examen de ${tipo}`} accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" />)
+                    : <p className="text-xs text-texto-2">No corresponden exámenes en esta sesión.</p>
+                  : <SubirArchivos programacionId={e.p.id} tipo={categoria.tipo} seccion={categoria.seccion} etiqueta={`Subir ${categoria.titulo.toLowerCase()}`} accept={categoria.accept ?? ".pdf,.ppt,.pptx,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.zip"} />}
+              </div>
+            </section>)}
           </div>
+          <label className="flex items-start gap-2 text-sm"><input type="checkbox" name="entregablesConfirmados" value="si" required className="mt-1" />Confirmo que adjunté los documentos entregables que corresponden a esta capacitación.</label>
         </div>
       );
     case "imprimir_ficha_digital":
@@ -1172,6 +1192,8 @@ const BOTON: Record<string, string> = {
   examen: "Examen coordinado con el asistente",
   guardar_material: "Registrar",
   imprimir_ficha: "Impresión realizada",
+  datos_capacitacion: "Confirmar datos de capacitación",
+  recursos_post: "Confirmar revisión de recursos",
   solicitar_recursos: "Enviar solicitud de recursos",
   revisar_recursos: "Aprobar requerimientos y coordinación",
   programa_viaje: "Registrar programa de viaje",
@@ -1213,12 +1235,12 @@ function Tarjeta({ s, n, e, est, u, href }: { s: EstadoItem; n: number; e: Exp; 
         </div>
         <p className="text-xs text-texto-2">{s.descripcion}</p>
         {s.nota && <p className="text-xs italic text-[#6b7280]">📝 {s.nota}</p>}
-        {s.clave === "validar_programacion" && <ResumenProgramacion e={e} u={u} />}
-        {s.clave === "aprobar_preparacion" && s.estado !== "disponible" && <ResumenAsistente e={e} />}
-        {s.clave === "programa_viaje" && s.estado === "hecho" && <ArchivosProgramaViaje e={e} />}
+        {(s.clave === "validar_programacion" || s.clave === "datos_capacitacion") && <ResumenProgramacion e={e} u={u} editable={s.estado !== "hecho"} />}
+        {s.clave === "aprobar_preparacion" && s.estado === "bloqueado" && <ResumenAsistente e={e} />}
 
         {s.estado === "hecho" && reg && (
-          <div className="flex items-start justify-between gap-2">
+          <div className="flex flex-col gap-3">
+            <RegistroCompleto clave={s.clave} registro={reg} archivos={e.docs.map((d) => ({ id: d.id, nombre: d.nombre, href: enlaceDoc(d), seccion: seccionDe(d) }))} liquidacion={e.liquidacion.guardada ? e.liquidacion.datos : undefined} />
             <Resumen clave={s.clave} r={reg} />
             {(mio || u.roles.includes("jefe_proyecto")) && <form action={deshacerPaso}>
               <input type="hidden" name="programacionId" value={e.p.id} />
@@ -1251,7 +1273,7 @@ function Tarjeta({ s, n, e, est, u, href }: { s: EstadoItem; n: number; e: Exp; 
           </FormPaso>
         )}
         {s.estado === "bloqueado" && faltan.length > 0 && <p className="text-xs text-texto-2">Espera: {faltan.join(" · ")}</p>}
-        {s.estado === "no_aplica" && <p className="text-xs text-texto-2">No aplica: no es la primera ni la última sesión de la capacitación.</p>}
+        {s.estado === "no_aplica" && <p className="text-xs text-texto-2">{s.clave === "escanear_subir" ? "No aplica: la capacitación no se ejecutó." : "No aplica en esta sesión."}</p>}
       </div>
     </li>
   );
@@ -1337,7 +1359,7 @@ export default async function Expediente({ params, searchParams }: PageProps<"/o
               <summary className="flex cursor-pointer list-none items-center gap-3 rounded-lg px-1 py-1 hover:bg-[#eef1f5]">
                 <span className="text-xs text-texto-2 transition-transform group-open/fase:rotate-90">▶</span>
                 <h2 className="text-[15px] font-semibold text-marino">
-                  Fase {f} · {FASES[f]} {paralelo && <span className="text-sm font-normal text-texto-2">(en paralelo)</span>}
+                  Fase {f} · {nombreFase(et, f)} {paralelo && <span className="text-sm font-normal text-texto-2">(en paralelo)</span>}
                 </h2>
                 <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${hechas === deFase.length ? "bg-[#dcfce7] text-[#166534]" : enCurso ? "bg-[#ffedd5] text-[#9a3412]" : "bg-[#eef1f5] text-texto-2"}`}>
                   {hechas}/{deFase.length}{enCurso ? " · en curso" : ""}
@@ -1469,7 +1491,7 @@ export default async function Expediente({ params, searchParams }: PageProps<"/o
               <span className={`${flecha} opacity-30`} aria-hidden="true">‹</span>
             )}
             <span>
-              {ETAPAS[foco.etapa]} · {num.get(foco.clave)} de {porEtapa[foco.etapa].estados.length} · {FASES[foco.fase]}
+              {ETAPAS[foco.etapa]} · {num.get(foco.clave)} de {porEtapa[foco.etapa].estados.length} · {nombreFase(foco.etapa, foco.fase)}
             </span>
             {siguiente ? (
               <Link href={hrefPaso(siguiente.clave)} scroll={false} className={flecha} title={`Siguiente: ${siguiente.titulo}`} aria-label="Actividad siguiente">›</Link>
