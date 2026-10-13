@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { CHEQUEOS_EQUIPO, TIPOS_EQUIPO } from "@/lib/inventario";
-import { SECCIONES, TIPO_DOC, enlaceDoc, origenDoc, seccionDe, tamanoLegible } from "@/lib/documentos";
+import { TIPO_DOC, enlaceDoc, seccionDe, tamanoLegible } from "@/lib/documentos";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import type { PasoRegistro } from "@/db/schema";
@@ -8,7 +8,7 @@ import { cargarExpediente } from "@/lib/preparacion";
 import { exigirUsuario, puedeVerSesion, type Usuario } from "@/lib/auth";
 import { puede, puedeEditarFicha, puedeRegistrarPaso } from "@/lib/permisos";
 import { ruta, combinadas } from "@/lib/consultas";
-import { ETAPAS, nombreFase, PASO, ROLES, etapaActual, resumenFlujo, type Etapa, type Vista } from "@/lib/flujo-pre";
+import { nombreFase, faseSeguimiento, PASO, ROLES, resumenFlujo } from "@/lib/flujo-pre";
 import { fechaCorta, fechaLarga, hora, TURNO_LABEL } from "@/lib/fechas";
 import { ChipEstado, Encabezado, nombreCompleto } from "@/components/ui";
 import { BarraAvance, ChipRol } from "@/components/flujo";
@@ -20,10 +20,10 @@ import ImpresionDinamicas from "./ImpresionDinamicas";
 import SolicitudRecursos from "./SolicitudRecursos";
 import ProgramaViaje from "./ProgramaViaje";
 import DatosPost from "./DatosPost";
+import EntregablesPost from "./EntregablesPost";
 import ViaticosPost from "./ViaticosPost";
-import RegistroCompleto from "./RegistroCompleto";
+import RegistroCompleto, { ResumenCierre } from "./RegistroCompleto";
 import { recursosDe } from "@/lib/recursos-sesion";
-import { ENTREGABLES as CATEGORIAS_ENTREGABLES } from "@/lib/entregables";
 import { listarPlantillasViaje } from "@/lib/plantillas-viaje";
 import { DOCUMENTOS_REVISION, ENTREGABLES, GASTOS, PREGUNTAS_PREPARACION, type Ficha2 } from "@/lib/ficha2";
 import FormPaso, { BotonesDecision, FormAccion, FormItem } from "./FormPaso";
@@ -35,46 +35,30 @@ export const metadata = { title: "Expediente de pre-capacitación" };
 type Exp = NonNullable<Awaited<ReturnType<typeof cargarExpediente>>>;
 type EstadoItem = ReturnType<typeof resumenFlujo>["estados"][number];
 
-function ResumenProgramacion({ e, u, editable = true }: { e: Exp; u: Usuario; editable?: boolean }) {
+function ResumenProgramacion({ e, u }: { e: Exp; u: Usuario }) {
   const { p } = e;
   const datos = [
-    ["Región / estructura", p.sesion.modulo.actividad.componente.estructura.nombre],
-    ["Programa", ruta(p, "completa")],
-    ["Sesiones", [p.sesion.nombre, ...combinadas(p)].join(" + ")],
+    ["Región / programa", p.sesion.modulo.actividad.componente.estructura.nombre],
+    ["Capacitación", ruta(p, "completa")],
+    ["Sesión", [p.sesion.nombre, ...combinadas(p)].join(" + ")],
     ["Fecha", fechaLarga(p.fecha)],
-    ["Horario", `${hora(p.horaInicio)}–${hora(p.horaFin)}`],
+    ["Horario", `${hora(p.horaInicio)} – ${hora(p.horaFin)}`],
     ["Turno", TURNO_LABEL[p.turno]],
-    ["Sede y aula", `${p.sede.nombre} · ${p.aula || "Sin aula indicada"}`],
+    ["Sede", p.sede.nombre],
+    ["Aula", p.aula || "Sin aula indicada"],
     ["Capacitador", nombreCompleto(p.capacitador)],
-    ["Asistente", nombreCompleto(p.asistente)],
+    ["Soporte / asistente", nombreCompleto(p.asistente)],
     ["Cupo", p.cupo == null ? "Sin cupo indicado" : String(p.cupo)],
+    ["Beneficiarios inscritos", String(e.inscritos)],
   ];
-  return (
-    <section aria-label="Datos de programación" className="card flex flex-col gap-3 px-5 py-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="font-semibold text-marino">Programación de la capacitación</h3>
-        {editable && puede(u.roles, "cronograma", "editar") && (
-          <Link
-            href={`/estrategico/cronograma/${p.id}`}
-            className="btn-secundario gap-2 rounded-lg px-4 py-2 text-sm shadow-sm transition-shadow hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-marino"
-          >
-            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L9 17l-4 1 1-4Z" />
-            </svg>
-            Revisar o editar cronograma
-            <span aria-hidden="true">→</span>
-          </Link>
-        )}
-      </div>
-      <dl className="grid gap-3 text-sm sm:grid-cols-2">
-        {datos.map(([label, valor]) => (
-          <div key={label}><dt className="text-texto-2">{label}</dt><dd className="font-medium text-texto">{valor}</dd></div>
-        ))}
-      </dl>
-      <ChipEstado estado={p.estado} sinCapacitador={!p.capacitador} />
-      {p.observacion && <p className="text-sm"><strong>Observación:</strong> {p.observacion}</p>}
-    </section>
-  );
+  return <section aria-label="Resumen de la programación" className="space-y-4 rounded-xl border border-borde bg-[#f5f8fc] p-4">
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <h4 className="font-semibold text-marino">Programación de la capacitación</h4>
+      {puede(u.roles, "cronograma", "editar") && <Link href={`/estrategico/cronograma/${p.id}`} className="btn-secundario inline-flex items-center gap-2 px-4 py-2 text-sm">Editar programación <span aria-hidden="true">→</span></Link>}
+    </div>
+    <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-2">{datos.map(([titulo, valor]) => <div key={titulo}><dt className="text-xs text-texto-2">{titulo}</dt><dd className="mt-1 break-words text-sm font-medium text-marino">{valor}</dd></div>)}</dl>
+    {p.observacion && <div className="border-t border-borde pt-3"><p className="text-xs text-texto-2">Observación</p><p className="mt-1 whitespace-pre-wrap text-sm">{p.observacion}</p></div>}
+  </section>;
 }
 
 const CATEGORIAS = {
@@ -145,7 +129,10 @@ function Resumen({ clave, r }: { clave: string; r: PasoRegistro }) {
       break;
     case "datos_capacitacion":
       partes.push(d.realizada === false ? "No se ejecutó la capacitación" : "Capacitación ejecutada");
+      if (d.horarioProgramado === true) partes.push("Realizada en el horario programado");
+      if (d.horarioProgramado === false) partes.push("Realizada fuera del horario programado");
       if (d.horaInicioReal && d.horaFinReal) partes.push(`Horario real: ${d.horaInicioReal}–${d.horaFinReal}`);
+      if (d.hayIncidencias === false) partes.push("Sin incidencias");
       if (Array.isArray(d.tiposIncidencia) && d.tiposIncidencia.length) partes.push(`Tipos de incidencia: ${d.tiposIncidencia.join(", ")}`);
       if (d.incidencias) partes.push(`Incidencias: ${d.incidencias}`);
       break;
@@ -164,10 +151,15 @@ function Resumen({ clave, r }: { clave: string; r: PasoRegistro }) {
       break;
     }
     case "programa_viaje":
-      partes.push(d.corresponde ? `Programa de viaje presentado${d.archivos ? ` · ${d.archivos} archivo(s) adjunto(s)` : ""}${d.itinerario ? `: ${d.itinerario}` : ""}` : "No corresponde presentar programa de viaje");
+      partes.push(d.corresponde ? `Programa de viaje registrado${Array.isArray(d.actividadesViaje) ? ` · ${d.actividadesViaje.length} actividades` : ""}` : "No corresponde presentar programa de viaje");
       break;
     case "aprobar_preparacion":
       partes.push("Aprobación de la preparación registrada");
+      if (d.copiasEntrada != null) partes.push(`Examen de entrada: ${d.copiasEntrada} copias impresas`);
+      if (d.copiasSalida != null) partes.push(`Examen de salida: ${d.copiasSalida} copias impresas`);
+      break;
+    case "aprobar_cierre":
+      partes.push("Desarrollo y entregables aprobados por Gestión Documental · sesión cerrada");
       break;
     case "probar_equipos":
       partes.push(d.resultado === "observado" ? "Con observaciones" : "Todo operativo");
@@ -279,13 +271,6 @@ async function PlantillasProgramaViaje() {
   </section>;
 }
 
-function ArchivosProgramaViaje({ e }: { e: Exp }) {
-  const ids = e.ctx.pasos.programa_viaje?.documentos;
-  if (!Array.isArray(ids)) return null;
-  const docs = e.docs.filter((d) => ids.includes(d.id));
-  return <ul className="space-y-1 text-sm">{docs.map((d) => <li key={d.id}><a href={enlaceDoc(d)} className="enlace">⬇ {d.nombre}</a></li>)}</ul>;
-}
-
 function ResumenAsistente({ e }: { e: Exp }) {
   const pasos = e.ctx.pasos;
   const solicitados = recursosDe(pasos.solicitar_recursos?.recursos);
@@ -310,7 +295,7 @@ function ResumenAsistente({ e }: { e: Exp }) {
     </div>
     {typeof revision?.obs === "string" && <p>Comentario: {revision.obs}</p>}
     <p>Coordinación con el asistente: <strong>{revision?.coordinadoAsistente ? "Confirmada" : "Pendiente"}</strong></p>
-    <div><h5 className="font-semibold">Programa de viaje</h5><p className="whitespace-pre-wrap">{viaje ? viaje.corresponde ? String(viaje.itinerario || "Programa presentado en archivo adjunto.") : "No corresponde." : "Pendiente de definir."}</p>{viaje?.corresponde === true && <ArchivosProgramaViaje e={e} />}</div>
+    <div className="space-y-2"><h5 className="font-semibold">Programa de viaje</h5><p>{viaje ? viaje.corresponde ? `Programa registrado${Array.isArray(viaje.actividadesViaje) ? ` con ${viaje.actividadesViaje.length} actividades` : ""}.` : "No corresponde." : "Pendiente de definir."}</p>{viaje?.corresponde === true && viaje.programaGenerado === true && <a href={`/api/programaciones/${e.p.id}/programa-viaje`} className="btn-oscuro inline-flex px-5 py-3">⬇ Descargar programa de viaje (Word)</a>}</div>
   </section>;
 }
 
@@ -508,13 +493,14 @@ function Campos({ clave, e }: { clave: string; e: Exp }) {
     case "imprimir_ficha":
       return (
         <div className="flex flex-col gap-3 text-[13px]">
-          <Link href={`/operativo/capacitacion/${e.p.id}/imprimir`} target="_blank" className="enlace">🖨 Lista de asistencia</Link>
+          <Link href={`/operativo/capacitacion/${e.p.id}/imprimir`} target="_blank" className="btn-oscuro inline-flex w-full items-center justify-center gap-3 px-6 py-4 text-base font-bold shadow-md sm:w-fit">🖨 Ver / imprimir lista de asistencia</Link>
           <label className="flex items-start gap-2 text-sm"><input type="checkbox" name="listaImpresa" value="si" required className="mt-1" />Confirmo que ya imprimí la lista de asistencia de esta sesión.</label>
           {e.ctx.examen && <fieldset className="grid gap-3 rounded-lg border border-borde p-3 sm:grid-cols-2">
             <legend className="px-1 font-semibold text-marino">Copias de exámenes impresas</legend>
             {(e.ctx.examen === "entrada" || e.ctx.examen === "ambos") && <div><label htmlFor="copias-entrada" className="etiqueta">Examen de entrada</label><input id="copias-entrada" name="copiasEntrada" type="number" min={1} step={1} required defaultValue={e.inscritos || ""} className="campo" /></div>}
             {(e.ctx.examen === "salida" || e.ctx.examen === "ambos") && <div><label htmlFor="copias-salida" className="etiqueta">Examen de salida</label><input id="copias-salida" name="copiasSalida" type="number" min={1} step={1} required defaultValue={e.inscritos || ""} className="campo" /></div>}
             <p className="text-xs text-texto-2 sm:col-span-2">Se propone una copia por inscrito. Ajusta la cantidad según las copias que realmente imprimiste.</p>
+            <label className="flex items-start gap-2 text-sm sm:col-span-2"><input type="checkbox" name="examenesImpresos" value="si" required className="mt-1 size-5 accent-marino" />Confirmo que ya imprimí el examen {EXAMEN[e.ctx.examen]} en las cantidades indicadas.</label>
           </fieldset>}
         </div>
       );
@@ -528,11 +514,17 @@ function Campos({ clave, e }: { clave: string; e: Exp }) {
         <label className="flex items-start gap-2 text-sm"><input type="checkbox" name="recursosAprobados" value="si" required className="mt-1" />Apruebo los requerimientos tal como se muestran.</label>
       </>;
     case "programa_viaje":
-      return <ProgramaViaje programacionId={e.p.id} plantillas={<PlantillasProgramaViaje />} />;
+      return <ProgramaViaje fecha={e.p.fecha} plantillas={<PlantillasProgramaViaje />} />;
     case "aprobar_preparacion":
       return <>
         <ResumenAsistente e={e} />
         <label className="flex items-start gap-2 text-sm"><input type="checkbox" name="conforme" value="si" required className="mt-1" />Como responsable de Gestión Documental, apruebo la preparación: lista impresa, recursos y equipos aprobados, coordinación y programa de viaje cuando corresponde.</label>
+      </>;
+    case "aprobar_cierre":
+      return <>
+        <ResumenCierre pasos={pasos} programacionId={e.p.id} archivos={e.docs.map((d) => ({ id: d.id, nombre: d.nombre, href: enlaceDoc(d), seccion: seccionDe(d) }))} liquidacion={e.liquidacion.guardada ? e.liquidacion.datos : undefined} />
+        <label className="etiqueta">Comentario (opcional)<textarea name="obs" maxLength={2000} rows={2} className="campo" /></label>
+        <label className="flex items-start gap-2 text-sm"><input type="checkbox" name="cierreConforme" value="si" required className="mt-1 size-5 accent-marino" />Como responsable de Gestión Documental, apruebo el desarrollo de la capacitación, la devolución de recursos, los entregables y los viáticos de las fases 4 y 5.</label>
       </>;
     case "alistar_material": {
       const pend = e.items.filter((i) => !i.listo).length;
@@ -800,7 +792,7 @@ function Campos({ clave, e }: { clave: string; e: Exp }) {
       return (
         <>
           <p className="text-[13px]">
-            <Link href={`/operativo/capacitacion/${e.p.id}`} className="enlace">Abrir la lista de asistencia</Link> y registrar a los participantes.{" "}
+            <Link href={`/operativo/capacitacion/${e.p.id}`} className="btn-oscuro inline-flex px-5 py-3">Tomar asistencia de beneficiarios →</Link>{" "}
             <span className="text-texto-2">({e.inscritos} programados · {e.presentes} presentes registrados{declarados != null ? ` · ${declarados} declarados en la 2da sección` : ""})</span>
           </p>
           {declarados != null && e.presentes > 0 && declarados !== e.presentes && (
@@ -814,6 +806,7 @@ function Campos({ clave, e }: { clave: string; e: Exp }) {
             </label>
           )}
           <input name="obs" placeholder="Observación (obligatoria si no coincide con la 2da sección)" aria-label="Observación" className="campo py-2" />
+          <label className="flex items-start gap-2 text-sm"><input type="checkbox" name="asistenciaConfirmada" value="si" required className="mt-1 size-5 accent-marino" />Confirmo que registré la asistencia de los beneficiarios de esta sesión.</label>
         </>
       );
     }
@@ -835,27 +828,7 @@ function Campos({ clave, e }: { clave: string; e: Exp }) {
         </>
       );
     case "escanear_subir":
-      return (
-        <div className="flex flex-col gap-3">
-          <p className="text-xs text-texto-2">
-            Cada grupo se guarda en su subcarpeta de esta fecha. Puedes elegir varios archivos a la vez.
-          </p>
-          <div className="space-y-3">
-            {CATEGORIAS_ENTREGABLES.filter((categoria) => categoria.seccion !== "viaticos").map((categoria) => <section key={categoria.seccion} className="grid overflow-hidden rounded-lg border border-borde md:grid-cols-[14rem_minmax(0,1fr)]">
-              <h4 className="bg-[#f3f6fa] p-4 font-semibold text-marino">{categoria.titulo}</h4>
-              <div className="min-w-0 space-y-3 border-t border-borde p-4 md:border-l md:border-t-0">
-                {e.docs.filter((d) => seccionDe(d) === categoria.seccion).map((d) => <a key={d.id} href={enlaceDoc(d)} className="enlace block break-words">⬇ {d.nombre}</a>)}
-                {categoria.seccion === "examen"
-                  ? e.ctx.examen
-                    ? (["entrada", "salida"] as const).filter((tipo) => e.ctx.examen === tipo || e.ctx.examen === "ambos").map((tipo) => <SubirArchivos key={tipo} programacionId={e.p.id} tipo={`examen_${tipo}`} seccion="examen" etiqueta={`Subir examen de ${tipo}`} accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" />)
-                    : <p className="text-xs text-texto-2">No corresponden exámenes en esta sesión.</p>
-                  : <SubirArchivos programacionId={e.p.id} tipo={categoria.tipo} seccion={categoria.seccion} etiqueta={`Subir ${categoria.titulo.toLowerCase()}`} accept={categoria.accept ?? ".pdf,.ppt,.pptx,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.zip"} />}
-              </div>
-            </section>)}
-          </div>
-          <label className="flex items-start gap-2 text-sm"><input type="checkbox" name="entregablesConfirmados" value="si" required className="mt-1" />Confirmo que adjunté los documentos entregables que corresponden a esta capacitación.</label>
-        </div>
-      );
+      return <EntregablesPost programacionId={e.p.id} examen={e.ctx.examen} archivos={e.docs.map((d) => ({ id: d.id, nombre: d.nombre, href: enlaceDoc(d), tamano: d.tamano, seccion: seccionDe(d), tipo: d.tipo }))} />;
     case "imprimir_ficha_digital":
       return (
         <p className="text-[13px]">
@@ -1179,7 +1152,7 @@ const BOTON: Record<string, string> = {
   reportar_incidencias: "Reportar",
   llenar_ficha2: "Guardar 2da sección",
   registrar_asistencia: "Asistencia registrada",
-  rendir_viaticos: "Enviar liquidación a Administración",
+  rendir_viaticos: "Subir viáticos",
   recibir_rendicion: "Rendición recibida",
   escanear_subir: "Subir al sistema",
   imprimir_ficha_digital: "Ficha impresa",
@@ -1198,6 +1171,7 @@ const BOTON: Record<string, string> = {
   revisar_recursos: "Aprobar requerimientos y coordinación",
   programa_viaje: "Registrar programa de viaje",
   aprobar_preparacion: "Aprobar preparación",
+  aprobar_cierre: "Aprobar cierre de la sesión",
   alistar_material: "Material alistado",
   probar_equipos: "Registrar prueba",
   solicitar_viaticos: "Solicitar viáticos",
@@ -1235,12 +1209,12 @@ function Tarjeta({ s, n, e, est, u, href }: { s: EstadoItem; n: number; e: Exp; 
         </div>
         <p className="text-xs text-texto-2">{s.descripcion}</p>
         {s.nota && <p className="text-xs italic text-[#6b7280]">📝 {s.nota}</p>}
-        {(s.clave === "validar_programacion" || s.clave === "datos_capacitacion") && <ResumenProgramacion e={e} u={u} editable={s.estado !== "hecho"} />}
+        {s.clave === "validar_programacion" && <ResumenProgramacion e={e} u={u} />}
         {s.clave === "aprobar_preparacion" && s.estado === "bloqueado" && <ResumenAsistente e={e} />}
 
         {s.estado === "hecho" && reg && (
           <div className="flex flex-col gap-3">
-            <RegistroCompleto clave={s.clave} registro={reg} archivos={e.docs.map((d) => ({ id: d.id, nombre: d.nombre, href: enlaceDoc(d), seccion: seccionDe(d) }))} liquidacion={e.liquidacion.guardada ? e.liquidacion.datos : undefined} />
+            <RegistroCompleto programacionId={e.p.id} clave={s.clave} registro={reg} programaViajeDisponible={e.ctx.pasos.programa_viaje?.corresponde === true && e.ctx.pasos.programa_viaje?.programaGenerado === true} archivos={e.docs.map((d) => ({ id: d.id, nombre: d.nombre, href: enlaceDoc(d), seccion: seccionDe(d) }))} liquidacion={e.liquidacion.guardada ? e.liquidacion.datos : undefined} />
             <Resumen clave={s.clave} r={reg} />
             {(mio || u.roles.includes("jefe_proyecto")) && <form action={deshacerPaso}>
               <input type="hidden" name="programacionId" value={e.p.id} />
@@ -1279,11 +1253,6 @@ function Tarjeta({ s, n, e, est, u, href }: { s: EstadoItem; n: number; e: Exp; 
   );
 }
 
-const VISTAS: { v: Vista; label: string }[] = [
-  { v: "pre", label: "Pre-capacitación" },
-  { v: "post", label: "Post-capacitación" },
-  { v: "completo", label: "Completo" },
-];
 
 export default async function Expediente({ params, searchParams }: PageProps<"/operativo/capacitaciones/[id]">) {
   await connection();
@@ -1293,20 +1262,17 @@ export default async function Expediente({ params, searchParams }: PageProps<"/o
   if (!puedeVerSesion(u, e.p)) notFound();
   const { p } = e;
   const sp = await searchParams;
-  const vista: Vista = VISTAS.some((x) => x.v === sp.vista) ? (sp.vista as Vista) : etapaActual(e.ctx);
-  const etapas: Etapa[] = vista === "completo" ? ["pre", "post"] : [vista];
   const todo = resumenFlujo(e.ctx, "completo");
-  const rVista = resumenFlujo(e.ctx, vista);
+  const rVista = todo;
   const rPre = resumenFlujo(e.ctx, "pre");
   const rPost = resumenFlujo(e.ctx, "post");
-  const porEtapa = { pre: rPre, post: rPost };
   const est = new Map<string, string>(todo.estados.map((s) => [s.clave, s.estado]));
   // Numeración propia de cada etapa (Pre 1…19 · Post 1…9)
-  const num = new Map([rPre, rPost].flatMap((r) => r.estados.map((s, i) => [s.clave, i + 1] as const)));
+  const num = new Map(todo.estados.map((s, i) => [s.clave, i + 1] as const));
   // ── Navegación por actividad: el gráfico y las flechas abren una actividad a la vez ──
-  const orden = etapas.flatMap((et) => porEtapa[et].estados);
-  const hrefPaso = (c: string) => `/operativo/capacitaciones/${p.id}?vista=${vista}&paso=${c}`;
-  const pasoSolicitado = sp.paso === "conformidad_asistente" ? "aprobar_preparacion" : sp.paso;
+  const orden = todo.estados;
+  const hrefPaso = (c: string) => `/operativo/capacitaciones/${p.id}?paso=${c}`;
+  const pasoSolicitado = sp.paso === "conformidad_asistente" || sp.paso === "aprobar_preparacion" ? "revisar_recursos" : sp.paso;
   const pedida = typeof pasoSolicitado === "string" ? orden.find((s) => s.clave === pasoSolicitado) : undefined;
   const pendiente = orden.find((s) => s.estado === "disponible" && puedeRegistrarPaso(u.roles, s.roles)) ?? orden.find((s) => s.estado === "disponible");
   const foco = pedida ?? pendiente;
@@ -1316,15 +1282,18 @@ export default async function Expediente({ params, searchParams }: PageProps<"/o
 
   const lista = (items: EstadoItem[]) => (
     <ol className="flex flex-col gap-3">
-      {items.map((s) =>
-        s.clave === foco?.clave ? (
-          <li key={s.clave} className="rounded-lg border border-dashed border-acento px-4 py-2.5 text-[13px] text-acento-oscuro">
-            <a href="#foco" className="font-semibold hover:underline">↑ {s.titulo} — abierta arriba</a>
-          </li>
-        ) : (
-          <Tarjeta key={s.clave} s={s} n={num.get(s.clave)!} e={e} est={est} u={u} href={`${hrefPaso(s.clave)}#foco`} />
-        ),
-      )}
+      {items.map((s) => <li key={s.clave}>
+        <details className="group/actividad overflow-hidden rounded-lg border border-borde bg-white">
+          <summary className="flex cursor-pointer list-none items-center gap-3 px-4 py-3 hover:bg-[#f3f6fa]">
+            <span aria-hidden="true" className="text-xs text-texto-2 transition-transform group-open/actividad:rotate-90">▶</span>
+            <span className="min-w-0 flex-1 text-sm font-semibold text-marino">{num.get(s.clave)}. {s.titulo}</span>
+            <span className={`shrink-0 rounded-full px-2 py-1 text-xs ${s.estado === "hecho" ? "bg-[#dcfce7] text-[#166534]" : s.estado === "disponible" ? "bg-[#ffedd5] text-[#9a3412]" : "bg-[#eef1f5] text-texto-2"}`}>{s.estado === "hecho" ? "Confirmada" : s.estado === "disponible" ? "En curso" : s.estado === "no_aplica" ? "No aplica" : "Pendiente"}</span>
+          </summary>
+          <div className="border-t border-borde p-3">
+            {s.clave === foco?.clave ? <a href="#foco" className="enlace text-sm">↑ Ver el detalle de esta actividad abierta arriba</a> : <ol><Tarjeta s={s} n={num.get(s.clave)!} e={e} est={est} u={u} href={`${hrefPaso(s.clave)}#foco`} /></ol>}
+          </div>
+        </details>
+      </li>)}
     </ol>
   );
   const infoDe = (estados: EstadoItem[]) =>
@@ -1342,24 +1311,24 @@ export default async function Expediente({ params, searchParams }: PageProps<"/o
     );
 
   /** Tarjetas de una etapa, fase por fase (las fases con capacitador y asistente van en dos columnas). */
-  const BloqueEtapa = ({ et }: { et: Etapa }) => {
-    const estados = porEtapa[et].estados;
-    const fases = [...new Set(estados.map((s) => s.fase))];
+  const bloqueFlujo = () => {
+    const estados = todo.estados;
+    const fases = [...new Set(estados.map(faseSeguimiento))];
     return (
       <>
         {fases.map((f) => {
-          const deFase = estados.filter((s) => s.fase === f);
+          const deFase = estados.filter((s) => faseSeguimiento(s) === f);
           const cap = deFase.filter((s) => s.carril === "capacitador");
           const otros = deFase.filter((s) => s.carril !== "capacitador");
           const paralelo = cap.length > 0 && otros.length > 0;
           const hechas = deFase.filter((s) => s.estado === "hecho" || s.estado === "no_aplica").length;
           const enCurso = deFase.some((s) => s.estado === "disponible");
           return (
-            <details key={f} id={`fase-${et}-${f}`} open={f === foco?.fase || !foco} className="group/fase flex flex-col gap-3">
+            <details key={f} id={`fase-flujo-${f}`} open={!foco || f === faseSeguimiento(foco)} className="group/fase flex flex-col gap-3">
               <summary className="flex cursor-pointer list-none items-center gap-3 rounded-lg px-1 py-1 hover:bg-[#eef1f5]">
                 <span className="text-xs text-texto-2 transition-transform group-open/fase:rotate-90">▶</span>
                 <h2 className="text-[15px] font-semibold text-marino">
-                  Fase {f} · {nombreFase(et, f)} {paralelo && <span className="text-sm font-normal text-texto-2">(en paralelo)</span>}
+                  Fase {f} · {nombreFase(deFase[0].etapa, deFase[0].fase)} {paralelo && <span className="text-sm font-normal text-texto-2">(en paralelo)</span>}
                 </h2>
                 <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${hechas === deFase.length ? "bg-[#dcfce7] text-[#166534]" : enCurso ? "bg-[#ffedd5] text-[#9a3412]" : "bg-[#eef1f5] text-texto-2"}`}>
                   {hechas}/{deFase.length}{enCurso ? " · en curso" : ""}
@@ -1394,7 +1363,6 @@ export default async function Expediente({ params, searchParams }: PageProps<"/o
     ...(puede(u.roles, "cronograma", "editar") ? [{ href: `/estrategico/cronograma/${p.id}`, t: "✎ Editar programación" }] : []),
     ...(puede(u.roles, "documental") ? [{ href: `/soporte/gestion-documental?sesion=${p.sesionId}`, t: "📁 Gestión documental" }] : []),
   ];
-  const hayContenido = !!(p.sesion.contenido || p.sesion.recursoMetodologico || p.sesion.perfilSalida || p.sesion.objetivo);
   const flecha = "flex size-8 items-center justify-center rounded-full border border-borde bg-white text-marino hover:bg-[#eef1f5]";
 
   return (
@@ -1433,52 +1401,17 @@ export default async function Expediente({ params, searchParams }: PageProps<"/o
           <strong>Sesión no realizada:</strong> reprograma la fecha en Opciones › Editar programación y luego usa «Deshacer» en «¿Se realizó la sesión?».
         </p>
       )}
-      {rPost.cerrada ? (
-        <p role="status" className="rounded-lg bg-[#f0fdf4] px-4 py-2.5 text-sm font-semibold text-[#166534]">✓ Sesión cerrada: pre y post-capacitación completas.</p>
-      ) : (
-        rPre.terminado && vista === "pre" && (
-          <p role="status" className="rounded-lg bg-[#f0fdf4] px-4 py-2.5 text-sm font-semibold text-[#166534]">
-            ✓ Pre-capacitación completa.{" "}
-            <Link href={`/operativo/capacitaciones/${p.id}?vista=post`} className="underline">Continuar con la post-capacitación →</Link>
-          </p>
-        )
-      )}
+      {rPost.cerrada && <p role="status" className="rounded-lg bg-[#f0fdf4] px-4 py-2.5 text-sm font-semibold text-[#166534]">✓ Sesión cerrada: todas las actividades completas.</p>}
 
       {/* Proceso: etapa, avance y gráfico (cada punto abre su actividad debajo) */}
       <section aria-label="Seguimiento de la sesión" className="card flex flex-col gap-3 px-5 py-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <nav aria-label="Etapa del proceso" className="flex rounded-lg bg-[#eef1f5] p-0.5">
-            {VISTAS.map(({ v, label }) => {
-              const r = v === "completo" ? todo : porEtapa[v];
-              const activo = v === vista;
-              return (
-                <Link
-                  key={v}
-                  href={`/operativo/capacitaciones/${p.id}?vista=${v}`}
-                  aria-current={activo ? "page" : undefined}
-                  className={`rounded-md px-3 py-1.5 text-[13px] font-semibold transition-colors ${activo ? "bg-white text-marino shadow-sm" : "text-texto-2 hover:text-marino"}`}
-                >
-                  {label.replace("-capacitación", "")} <span className="font-normal text-texto-2">{r.hechos}/{r.total}</span>
-                </Link>
-              );
-            })}
-          </nav>
+          <h2 className="text-base font-semibold text-marino">Flujo de la sesión</h2>
           <div className="w-full sm:w-56">
             <BarraAvance porcentaje={rVista.porcentaje} etiqueta={`${rVista.hechos} de ${rVista.total} actividades`} />
           </div>
         </div>
-        {etapas.map((et, i) => (
-          <div key={et} className={i > 0 ? "border-t border-[#eef1f5] pt-3" : ""}>
-            <LineaProceso
-              titulo={ETAPAS[et]}
-              pasos={porEtapa[et].estados}
-              detenido={et === "pre" ? rPre.reprogramada : rPost.noRealizada}
-              info={infoDe(porEtapa[et].estados)}
-              enlace={hrefPaso}
-              seleccionado={foco?.clave}
-            />
-          </div>
-        ))}
+        <LineaProceso titulo="Seguimiento de la sesión" pasos={todo.estados.map((s) => ({ ...s, fase: faseSeguimiento(s), faseTitulo: nombreFase(s.etapa, s.fase) }))} detenido={rPre.reprogramada || rPost.noRealizada} info={infoDe(todo.estados)} enlace={hrefPaso} seleccionado={foco?.clave} />
       </section>
 
       {/* La actividad abierta, con flechas para pasar a la anterior o la siguiente */}
@@ -1491,7 +1424,7 @@ export default async function Expediente({ params, searchParams }: PageProps<"/o
               <span className={`${flecha} opacity-30`} aria-hidden="true">‹</span>
             )}
             <span>
-              {ETAPAS[foco.etapa]} · {num.get(foco.clave)} de {porEtapa[foco.etapa].estados.length} · {nombreFase(foco.etapa, foco.fase)}
+              Actividad {num.get(foco.clave)} de {todo.estados.length} · Fase {faseSeguimiento(foco)} · {nombreFase(foco.etapa, foco.fase)}
             </span>
             {siguiente ? (
               <Link href={hrefPaso(siguiente.clave)} scroll={false} className={flecha} title={`Siguiente: ${siguiente.titulo}`} aria-label="Actividad siguiente">›</Link>
@@ -1512,52 +1445,6 @@ export default async function Expediente({ params, searchParams }: PageProps<"/o
 
       {/* Lo demás, plegado */}
       <div className="flex flex-col gap-3">
-        {(hayContenido || e.docs.length > 0) && (
-          <details className="card group/mas">
-            <summary className="flex cursor-pointer list-none items-center gap-2 px-5 py-3 text-sm font-semibold text-marino">
-              <span className="text-xs text-texto-2 transition-transform group-open/mas:rotate-90">▶</span>
-              Contenido y material de la sesión
-              <span className="font-normal text-texto-2">· {e.docs.length} documento(s)</span>
-            </summary>
-            <div className="flex flex-col gap-4 border-t border-borde px-5 py-4 text-sm">
-              {p.sesion.objetivo && <p>{p.sesion.objetivo}</p>}
-              {hayContenido && (
-                <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
-                  {[
-                    ["Contenido", p.sesion.contenido],
-                    ["Recurso metodológico", p.sesion.recursoMetodologico],
-                  ].map(([t, v]) => (
-                    <div key={t}>
-                      <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-texto-2">{t}</h3>
-                      {v ? <ul className="list-disc space-y-0.5 pl-4">{v.split("\n").map((l, i) => <li key={i}>{l}</li>)}</ul> : <p className="text-texto-2">—</p>}
-                    </div>
-                  ))}
-                  <div>
-                    <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-texto-2">Perfil de salida</h3>
-                    <p>{p.sesion.perfilSalida ?? "—"}</p>
-                  </div>
-                </div>
-              )}
-              <div>
-                <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-texto-2">Material</h3>
-                {e.docs.length === 0 ? (
-                  <p className="text-[13px] text-[#92400e]">Aún no hay documentos para esta sesión.</p>
-                ) : (
-                  <ul className="grid grid-cols-1 gap-x-8 gap-y-1 text-[13px] md:grid-cols-2">
-                    {e.docs.map((d) => (
-                      <li key={d.id} className="flex flex-wrap items-center gap-2">
-                        <a href={enlaceDoc(d)} target={d.archivo ? undefined : "_blank"} rel="noreferrer" className="enlace">{d.archivo ? "⬇" : "↗"} {d.nombre}</a>
-                        <span className="text-texto-2">{TIPO_DOC[d.tipo]}{d.tamano != null ? ` · ${tamanoLegible(d.tamano)}` : ""}</span>
-                        {origenDoc(d) && <span className="rounded-full bg-[#ffedd5] px-2 py-0.5 text-[11px] font-semibold text-[#9a3412]">{origenDoc(d)}</span>}
-                        {d.programacionId && <span className="text-[11px] text-texto-2">📁 {SECCIONES[seccionDe(d)]}</span>}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            </div>
-          </details>
-        )}
 
         <details id="todas" className="card group/todas" open={!foco}>
           <summary className="flex cursor-pointer list-none items-center gap-2 px-5 py-3 text-sm font-semibold text-marino">
@@ -1566,12 +1453,7 @@ export default async function Expediente({ params, searchParams }: PageProps<"/o
             <span className="font-normal text-texto-2">· {rVista.hechos}/{rVista.total} hechas</span>
           </summary>
           <div className="flex flex-col gap-4 border-t border-borde px-5 py-4">
-            {etapas.map((et) => (
-              <div key={et} className="flex flex-col gap-3">
-                {vista === "completo" && <h2 className="text-base font-bold text-marino">{ETAPAS[et]}</h2>}
-                <BloqueEtapa et={et} />
-              </div>
-            ))}
+            {bloqueFlujo()}
           </div>
         </details>
       </div>

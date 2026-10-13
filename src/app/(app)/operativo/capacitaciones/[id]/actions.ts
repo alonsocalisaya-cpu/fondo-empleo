@@ -31,10 +31,11 @@ import { moverStock } from "@/lib/stock";
 import { destinatariosDe } from "@/lib/avisos";
 import { borrarArchivo } from "@/lib/archivos";
 import { guardarLiquidacionDb, leerLiquidacion } from "@/lib/liquidacion-db";
-import { saldo, totalGastos } from "@/lib/liquidacion";
+import { saldo, totalGastos, responsablesViaticos } from "@/lib/liquidacion";
 import { leerRecursos, leerEquipos, recursosDe } from "@/lib/recursos-sesion";
 import { leerDatosPost, leerRetornos } from "@/lib/post-sesion";
 import { seccionDe } from "@/lib/documentos";
+import { leerActividadesViaje } from "@/lib/actividades-viaje";
 
 export type Res = { ok?: string; error?: string } | undefined;
 
@@ -44,7 +45,7 @@ const nombre = (x: { nombres: string; apellidos: string } | undefined | null) =>
 async function cargar(id: number) {
   const p = await db.query.programaciones.findFirst({
     where: eq(programaciones.id, id),
-    with: { sede: true, preparacion: true, sesion: true, combinadas: true },
+    with: { sede: true, preparacion: true, sesion: true, combinadas: true, capacitador: true, asistente: true },
   });
   if (!p) return null;
   const ex = await examenes([p.sesionId, ...p.combinadas.map((c) => c.sesionId)]);
@@ -235,6 +236,10 @@ export async function registrarPaso(_prev: Res, f: FormData): Promise<Res> {
     case "imprimir_ficha":
       if (txt(f, "listaImpresa") !== "si") return { error: "Confirma que ya imprimiste la lista de asistencia." };
       reg.listaImpresa = true;
+      if (ctx.examen) {
+        if (txt(f, "examenesImpresos") !== "si") return { error: "Confirma que ya imprimiste los exámenes correspondientes en las cantidades indicadas." };
+        reg.examenesImpresos = true;
+      }
       for (const tipo of ["entrada", "salida"] as const) {
         if (ctx.examen !== tipo && ctx.examen !== "ambos") continue;
         const campo = tipo === "entrada" ? "copiasEntrada" : "copiasSalida";
@@ -270,6 +275,7 @@ export async function registrarPaso(_prev: Res, f: FormData): Promise<Res> {
       reg.obs = txt(f, "obs") || null;
       reg.coordinadoAsistente = true;
       reg.aprobado = true;
+      if (p.estado !== "cancelada") await db.update(programaciones).set({ estado: "confirmada" }).where(eq(programaciones.id, id));
       break;
     }
 
@@ -277,14 +283,22 @@ export async function registrarPaso(_prev: Res, f: FormData): Promise<Res> {
       const decisionViaje = txt(f, "viajeCorresponde");
       if (decisionViaje !== "si" && decisionViaje !== "no") return { error: "Indica si corresponde presentar el programa de viaje." };
       reg.corresponde = decisionViaje === "si";
-      reg.itinerario = reg.corresponde ? txt(f, "itinerario") : null;
-      if (String(reg.itinerario ?? "").length > 5000) return { error: "El programa de viaje admite un máximo de 5000 caracteres." };
       if (reg.corresponde) {
-        const ids = docsSubidos(f);
-        const n = await asociarDocs(ids, id, { subidoPor: por, tipo: "otro", version: "programa_viaje" });
-        if (!reg.itinerario && !n) return { error: "Sube el archivo del programa de viaje o completa el itinerario." };
-        reg.archivos = n;
-        reg.documentos = ids;
+          const asignados = await db.query.programaciones.findFirst({ where: eq(programaciones.id, id), with: { capacitador: true, asistente: true } });
+          if (!asignados?.capacitador || !asignados.asistente) return { error: "Asigna el capacitador y el asistente en la programación para generar el programa de viaje." };
+          const personas = [asignados.capacitador, asignados.asistente].map((persona) => `${persona.apellidos} ${persona.nombres}`.trim());
+          let filas: unknown;
+          try { filas = JSON.parse(txt(f, "actividadesViaje")); } catch { return { error: "No se pudieron leer las actividades del programa de viaje." }; }
+          const resultado = leerActividadesViaje(filas);
+          if (resultado.error) return { error: resultado.error };
+          reg.consultor = personas.join(" / ");
+          reg.personasViaje = personas;
+          reg.actividadesViaje = resultado.actividades;
+          reg.fechaPrograma = p.fecha;
+          reg.empresaDestino = p.sede.nombre;
+          reg.proyecto = "FONDOEMPLEO AREQUIPA";
+          reg.tipoInforme = "Programa";
+          reg.programaGenerado = true;
       }
       break;
     }
@@ -295,12 +309,12 @@ export async function registrarPaso(_prev: Res, f: FormData): Promise<Res> {
       reg.listaImpresa = Boolean(pasos.imprimir_ficha);
       reg.copiasEntrada = pasos.imprimir_ficha?.copiasEntrada ?? null;
       reg.copiasSalida = pasos.imprimir_ficha?.copiasSalida ?? null;
+      reg.examenesImpresos = pasos.imprimir_ficha?.examenesImpresos ?? null;
       reg.recursos = recursosDe(pasos.revisar_recursos?.recursos);
       reg.equipos = recursosDe(pasos.revisar_recursos?.equipos);
       reg.coordinadoAsistente = pasos.revisar_recursos?.coordinadoAsistente === true;
       reg.viajeCorresponde = pasos.programa_viaje?.corresponde === true;
-      reg.itinerario = pasos.programa_viaje?.itinerario ?? null;
-      reg.documentosViaje = pasos.programa_viaje?.documentos ?? [];
+      reg.actividadesViaje = pasos.programa_viaje?.actividadesViaje ?? [];
       if (p.estado !== "cancelada") await db.update(programaciones).set({ estado: "confirmada" }).where(eq(programaciones.id, id));
       break;
 
@@ -497,6 +511,7 @@ export async function registrarPaso(_prev: Res, f: FormData): Promise<Res> {
     }
 
     case "registrar_asistencia": {
+      if (txt(f, "asistenciaConfirmada") !== "si") return { error: "Confirma el registro de asistencia de los beneficiarios." };
       const [{ n, presentes }] = await db
         .select({ n: sql<number>`count(*)::int`, presentes: sql<number>`count(*) filter (where ${asistencias.estado} in ('presente','tarde'))::int` })
         .from(asistencias)
@@ -519,6 +534,8 @@ export async function registrarPaso(_prev: Res, f: FormData): Promise<Res> {
       // La liquidación (formato ACIDE-A&A-F-02) se llena en el mismo paso y queda guardada para descargarla
       const liq = leerLiquidacion(txt(f, "liquidacion"));
       if (typeof liq === "string") return { error: liq };
+      const responsables = responsablesViaticos(p);
+      if (responsables.nombre) Object.assign(liq, responsables);
       if (!liq.nombre) return { error: "Indica el nombre de quien rinde los viáticos." };
       await guardarLiquidacionDb(id, liq, por);
       reg.entregado = liq.presupuestado;
@@ -527,6 +544,14 @@ export async function registrarPaso(_prev: Res, f: FormData): Promise<Res> {
       reg.lineas = liq.lineas.length;
       reg.sinComprobante = liq.lineas.filter((l) => !l.comprobante).length;
       reg.liquidacion = liq;
+      break;
+    }
+
+    case "aprobar_cierre": {
+      if (txt(f, "cierreConforme") !== "si") return { error: "Confirma la aprobación del desarrollo, devoluciones, entregables y viáticos." };
+      reg.conforme = true;
+      reg.resumenCierre = Object.fromEntries(["datos_capacitacion", "registrar_asistencia", "recursos_post", "escanear_subir", "rendir_viaticos"].filter((clave) => pasos[clave]).map((clave) => [clave, pasos[clave]]));
+      reg.obs = txt(f, "obs") || null;
       await db.update(programaciones).set({ estado: "finalizada" }).where(eq(programaciones.id, id));
       break;
     }
@@ -538,16 +563,17 @@ export async function registrarPaso(_prev: Res, f: FormData): Promise<Res> {
     case "escanear_subir": {
       if (txt(f, "entregablesConfirmados") !== "si") return { error: "Confirma los documentos entregables de la capacitación." };
       const docs = await db.query.documentos.findMany({ where: eq(documentos.programacionId, id) });
-      const requeridos = ["diapositivas", "talleres", "lista_asistencia", "fotos", "video"];
+      const requeridos = ["diapositivas", "lista_asistencia", "fotos", "video"];
       if (ctx.examen) requeridos.push("examen");
       const faltantes = requeridos.filter((seccion) => !docs.some((d) => seccionDe(d) === seccion));
       if (faltantes.length) return { error: `Faltan archivos en: ${faltantes.join(", ")}.` };
       if (ctx.examen === "ambos" && (!["examen_entrada", "examen_salida"].every((tipo) => docs.some((d) => d.tipo === tipo)))) return { error: "Adjunta los exámenes de entrada y de salida." };
       await asociarDocs(docsSubidos(f), id, { subidoPor: por });
-      reg.archivos = docs.filter((d) => requeridos.includes(seccionDe(d))).length;
+      const categorias = [...requeridos, "talleres"];
+      reg.archivos = docs.filter((d) => categorias.includes(seccionDe(d))).length;
       reg.confirmados = true;
-      reg.categorias = requeridos;
-      reg.documentos = docs.filter((d) => requeridos.includes(seccionDe(d))).map((d) => d.id);
+      reg.categorias = categorias.filter((seccion) => docs.some((d) => seccionDe(d) === seccion));
+      reg.documentos = docs.filter((d) => categorias.includes(seccionDe(d))).map((d) => d.id);
       break;
     }
 
@@ -720,6 +746,9 @@ export async function deshacerPaso(f: FormData) {
   const pasos = { ...x.ctx.pasos };
   const previo = pasos[clave];
   delete pasos[clave];
+  if (clave === "revisar_recursos" && x.p.estado !== "cancelada") {
+    await db.update(programaciones).set({ estado: "programada" }).where(eq(programaciones.id, id));
+  }
   if (clave === "confirmar_sede" && previo?.localConfirmado === false) {
     await db.update(programaciones).set({ estado: "programada" }).where(eq(programaciones.id, id));
   }
@@ -742,7 +771,7 @@ export async function deshacerPaso(f: FormData) {
   if (clave === "actualizar_inventario") {
     await db.delete(revisionesEquipo).where(eq(revisionesEquipo.programacionId, id));
   }
-  if (clave === "gestionar_carpeta" || clave === "rendir_viaticos") {
+  if (clave === "gestionar_carpeta" || clave === "rendir_viaticos" || clave === "aprobar_cierre") {
     await db.update(programaciones).set({ estado: "confirmada" }).where(eq(programaciones.id, id));
   }
   if (clave === "escanear_subir" || clave === "enviar_examenes") {

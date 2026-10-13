@@ -2,6 +2,7 @@
 
 import { startTransition, useActionState, useEffect, useRef, useState, type FormEvent } from "react";
 import { guardarAsistencia, inscribirParticipante, quitarInscripcion } from "../actions";
+import { useConfirmacion } from "@/components/Confirmacion";
 
 type Estado = "presente" | "tarde" | "ausente" | "justificado";
 
@@ -38,11 +39,13 @@ function Aviso({ r }: { r: { ok?: string; error?: string } | undefined }) {
 export default function ListaAsistencia({
   programacionId,
   filas,
+  pendientes,
   cerrada,
   examen = null,
 }: {
   programacionId: number;
   filas: FilaAsistencia[];
+  pendientes: { participanteId: number; nombres: string; apellidos: string; dni: string }[];
   cerrada: boolean;
   /** Si la sesión tiene examen, se piden las notas en la misma lista */
   examen?: Examen;
@@ -55,6 +58,8 @@ export default function ListaAsistencia({
     Object.fromEntries(filas.map((f) => [f.participanteId, f.estado])),
   );
   const [buscar, setBuscar] = useState("");
+  const [buscarPendiente, setBuscarPendiente] = useState("");
+  const { confirmar, dialogo } = useConfirmacion();
   const [res, guardar, guardando] = useActionState(guardarAsistencia, undefined);
   const [resIns, inscribir, inscribiendo] = useActionState(inscribirParticipante, undefined);
 
@@ -69,10 +74,19 @@ export default function ListaAsistencia({
   };
 
   // onSubmit (y no action) para que React no borre horas/observaciones si hay un error.
-  const alGuardar = (e: FormEvent<HTMLFormElement>) => {
+  const alGuardar = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const boton = (e.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null;
     if (boton?.name === "quitar") {
+      const persona = filas.find((f) => String(f.participanteId) === boton.value);
+      const aceptado = await confirmar({
+        titulo: "Quitar de esta sesión",
+        mensaje: `¿Quieres quitar a ${persona?.nombre ?? "esta persona"} de la lista de esta sesión?`,
+        detalle: "Se retirará únicamente de esta sesión y se eliminará su asistencia registrada aquí, si la tiene. Su registro como beneficiario y sus otras sesiones se conservarán.",
+        aceptar: "Sí, quitar de esta sesión",
+        peligro: true,
+      });
+      if (!aceptado) return;
       const datos = new FormData();
       datos.set("programacionId", String(programacionId));
       datos.set("quitar", boton.value);
@@ -89,9 +103,12 @@ export default function ListaAsistencia({
   const pct = filas.length ? Math.round(((cuenta("presente") + cuenta("tarde")) * 100) / filas.length) : 0;
   const coincide = (f: FilaAsistencia) =>
     `${f.nombre} ${f.dni}`.toLowerCase().includes(buscar.trim().toLowerCase());
+  const normalizar = (texto: string) => texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const pendientesVisibles = pendientes.filter((p) => normalizar(buscarPendiente).trim().split(/\s+/).every((palabra) => normalizar(`${p.nombres} ${p.apellidos} ${p.dni}`).includes(palabra)));
 
   return (
     <>
+      {dialogo}
       <section className="grid grid-cols-2 gap-3 md:grid-cols-5">
         {[
           ["Presentes", cuenta("presente"), "text-[#166534]"],
@@ -219,6 +236,7 @@ export default function ListaAsistencia({
                         <button
                           type="submit"
                           name="quitar"
+                          formNoValidate
                           value={f.participanteId}
                           className="text-[13px] text-texto-2 hover:text-[#991b1b]"
                           aria-label={`Quitar a ${f.nombre} de la lista`}
@@ -236,18 +254,30 @@ export default function ListaAsistencia({
       </form>
 
       {!cerrada && (
+        <section className="card space-y-4 px-5 py-4">
+          <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-semibold text-marino">Beneficiarios pendientes de inscripción</h2><p className="mt-1 text-xs text-texto-2">Personas de la sede y turno de esta sesión que todavía no están en la lista.</p></div><span className="rounded-full bg-[#eef3f8] px-3 py-1 text-xs text-marino">{pendientes.length} pendientes</span></div>
+          <label className="etiqueta" htmlFor="buscar-pendiente">Buscar por DNI o nombre<input id="buscar-pendiente" value={buscarPendiente} onChange={(e) => setBuscarPendiente(e.target.value)} placeholder="Escribe el DNI, nombres o apellidos" className="campo mt-1" /></label>
+          <div className="max-h-96 space-y-2 overflow-y-auto">{pendientesVisibles.map((p) => <form key={p.participanteId} onSubmit={alInscribir} className="flex flex-wrap items-center gap-3 rounded-xl border border-borde bg-[#f8fafc] p-3">
+            <input type="hidden" name="programacionId" value={programacionId} /><input type="hidden" name="dni" value={p.dni} />
+            <div className="min-w-0 flex-1"><p className="break-words text-sm font-medium text-marino">{p.apellidos}, {p.nombres}</p><p className="mt-1 text-xs text-texto-2">DNI: {p.dni}</p></div>
+            <button disabled={inscribiendo} className="btn-secundario shrink-0 px-4 py-2 text-sm">+ Agregar a la lista</button>
+          </form>)}{!pendientesVisibles.length && <p className="rounded-lg bg-[#f5f8fc] p-4 text-sm text-texto-2">{pendientes.length ? "No se encontraron beneficiarios con esa búsqueda." : "Todos los beneficiarios de esta sede y turno están inscritos."}</p>}</div>
+          <Aviso r={resIns} />
+        </section>
+      )}
+      {!cerrada && (
         <form ref={formIns} onSubmit={alInscribir} className="card flex flex-col gap-3 border-dashed px-5 py-4">
           <input type="hidden" name="programacionId" value={programacionId} />
-          <h2 className="font-semibold text-marino">Inscribir participante</h2>
+          <h2 className="font-semibold text-marino">Registrar e inscribir a una persona nueva</h2>
           <p className="text-[13px] text-texto-2">
-            Escribe el DNI. Si la persona ya está registrada basta con eso; si es nueva, completa también sus datos.
+            Si la persona aún no está registrada en el sistema, completa su DNI, nombres y apellidos para agregarla a esta sesión.
           </p>
           <div className="grid grid-cols-1 items-end gap-3 md:grid-cols-5">
             <div><label htmlFor="i-dni" className="etiqueta">DNI</label><input id="i-dni" name="dni" required inputMode="numeric" className="campo" /></div>
-            <div><label htmlFor="i-nom" className="etiqueta">Nombres (si es nuevo)</label><input id="i-nom" name="nombres" className="campo" /></div>
-            <div><label htmlFor="i-ape" className="etiqueta">Apellidos (si es nuevo)</label><input id="i-ape" name="apellidos" className="campo" /></div>
+            <div><label htmlFor="i-nom" className="etiqueta">Nombres</label><input id="i-nom" name="nombres" required className="campo" /></div>
+            <div><label htmlFor="i-ape" className="etiqueta">Apellidos</label><input id="i-ape" name="apellidos" required className="campo" /></div>
             <div><label htmlFor="i-area" className="etiqueta">Área (opcional)</label><input id="i-area" name="area" className="campo" /></div>
-            <button disabled={inscribiendo} className="btn-oscuro">{inscribiendo ? "Inscribiendo…" : "Inscribir"}</button>
+            <button disabled={inscribiendo} className="btn-oscuro">{inscribiendo ? "Inscribiendo…" : "Registrar e inscribir"}</button>
           </div>
           <Aviso r={resIns} />
         </form>

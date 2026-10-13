@@ -1,10 +1,11 @@
 import Link from "next/link";
 import type { EstadoPaso } from "@/lib/flujo-pre";
 
-type Paso = { clave: string; titulo: string; corto: string; estado: EstadoPaso; fase: number; carril: string; etapa?: "pre" | "post" };
+type Paso = { clave: string; titulo: string; corto: string; estado: EstadoPaso; fase: number; carril: string; etapa?: "pre" | "post"; faseTitulo?: string };
 type Est = EstadoPaso | "detenido";
 
 const FASE_CORTA: Record<number, string> = { 1: "Programación", 2: "Preparación", 3: "Aprobación", 4: "Cierre", 5: "Entregables", 6: "Documentación", 7: "Revisión y cierre" };
+const FASE_GRAFICO: Record<number, string> = { 1: "Datos", 2: "Preparar", 3: "Aprobar", 4: "Ejecución", 5: "Entregar" };
 const ACTIVIDAD_CORTA: Record<string, string> = {
   dinamicas: "Dinámicas",
   examen: "Examen",
@@ -97,7 +98,7 @@ export default function LineaProceso({
       col += n - 1 + 0.5;
     } else {
       // Una fase de una sola actividad lleva algo de aire a los lados para que su nombre no choque con el de al lado
-      const aire = !compacto && deFase.length === 1 && fase !== fases.at(-1) ? 0.6 : 0;
+      const aire = deFase.length === 1 && fase !== fases.at(-1) ? 0.6 : 0;
       col += aire;
       deFase.forEach((p) => pos.set(p.clave, { x: xDe(col++), y: yMid, lugar: "abajo" }));
       col--;
@@ -150,9 +151,9 @@ export default function LineaProceso({
           <g key={r.fase}>
             {i > 0 && <line x1={r.x0 - W / 2} x2={r.x0 - W / 2} y1={4} y2={alto - 2} stroke="#e6ebf1" />}
             <text
-              x={i === 0 ? 4 : conCarriles.has(r.fase) ? r.x0 - W / 2 + 6 : i === rangos.length - 1 && r.x1 - r.x0 < W ? ancho - 4 : (r.x0 + r.x1) / 2}
+              x={conCarriles.has(r.fase) ? r.x0 - W / 2 + 6 : i === rangos.length - 1 && r.x1 - r.x0 < W ? ancho - 4 : (r.x0 + r.x1) / 2}
               y={11}
-              textAnchor={i === 0 || conCarriles.has(r.fase) ? "start" : i === rangos.length - 1 && r.x1 - r.x0 < W ? "end" : "middle"}
+              textAnchor={conCarriles.has(r.fase) ? "start" : i === rangos.length - 1 && r.x1 - r.x0 < W ? "end" : "middle"}
               fontSize={9}
               fontWeight={600}
               letterSpacing={0.6}
@@ -160,8 +161,11 @@ export default function LineaProceso({
             >
               {pasos.find((p) => p.fase === r.fase)?.etapa === "post" ? <>
                 <tspan>{`FASE ${r.fase}`}</tspan>
-                <tspan x={i === 0 ? 4 : (r.x0 + r.x1) / 2} dy={11} fontSize={8} letterSpacing={0}>{r.fase === 1 ? "DATOS DE CAPACITACIÓN" : "ENTREGABLES"}</tspan>
-              </> : `FASE ${r.fase} · ${(FASE_CORTA[r.fase] ?? "").toUpperCase()}`}
+                <tspan x={conCarriles.has(r.fase) ? r.x0 - W / 2 + 6 : (r.x0 + r.x1) / 2} dy={11} fontSize={8} letterSpacing={0}>{(FASE_GRAFICO[r.fase] ?? FASE_CORTA[r.fase] ?? "").toUpperCase()}</tspan>
+              </> : <>
+                <tspan>{`FASE ${r.fase}`}</tspan>
+                <tspan x={conCarriles.has(r.fase) ? r.x0 - W / 2 + 6 : (r.x0 + r.x1) / 2} dy={11} fontSize={8} letterSpacing={0}>{(FASE_GRAFICO[r.fase] ?? FASE_CORTA[r.fase] ?? "").toUpperCase()}</tspan>
+              </>}
               {conCarriles.has(r.fase) && (
                 <tspan dx={8} fontWeight={400} letterSpacing={0} fill="#94a3b8">▲ capacitador · ▼ asistente</tspan>
               )}

@@ -70,11 +70,15 @@ export const FASES: Record<DefPaso["fase"], string> = {
   4: "Cierre de la sesión",
   5: "Entregables",
   6: "Documentación y entregable",
-  7: "Revisión y cierre",
+  7: "Desarrollo",
 };
 
 export function nombreFase(etapa: Etapa, fase: DefPaso["fase"]) {
   return etapa === "post" ? ({ 1: "Datos de Capacitación", 2: "Entregables" } as Record<number, string>)[fase] ?? FASES[fase] : FASES[fase];
+}
+
+export function faseSeguimiento(paso: Pick<DefPaso, "etapa" | "fase">) {
+  return paso.etapa === "post" ? paso.fase + 3 : paso.fase;
 }
 
 export const PASOS: DefPaso[] = [
@@ -94,53 +98,54 @@ export const PASOS: DefPaso[] = [
     etapa: "pre", fase: 2, carril: "asistente", rol: "asistente", requiere: ["validar_programacion"],
   },
   {
+    clave: "programa_viaje",
+    corto: "Viaje",
+    titulo: "Programa de viaje (si corresponde)",
+    descripcion: "Indica si corresponde presentar un programa de viaje. Si corresponde, completa las actividades, descripciones, fechas y horas; en caso contrario, confirma que no corresponde.",
+    etapa: "pre", fase: 2, carril: "asistente", rol: "asistente", requiere: ["imprimir_ficha"],
+  },
+  {
     clave: "solicitar_recursos",
     corto: "Recursos",
     titulo: "Solicitud de recursos",
     descripcion: "Solicita gaseosas, galletas, papelotes u otros recursos y, en el apartado de equipos de cómputo, laptops, proyectores u otros equipos. Indica las unidades de cada uno.",
-    etapa: "pre", fase: 2, carril: "asistente", rol: "asistente", requiere: ["imprimir_ficha"],
+    etapa: "pre", fase: 2, carril: "asistente", rol: "asistente", requiere: ["programa_viaje"],
   },
   {
     clave: "revisar_recursos",
     corto: "Revisión",
     titulo: "Aprobación de requerimientos y coordinación con el asistente",
     descripcion: "Gestión Documental revisa los recursos solicitados, modifica lo necesario y confirma que ya coordinó con el asistente antes de aprobar.",
-    etapa: "pre", fase: 2, carril: "asistente", rol: "gestion_documental", requiere: ["solicitar_recursos"],
-  },
-  {
-    clave: "programa_viaje",
-    corto: "Viaje",
-    titulo: "Programa de viaje (si corresponde)",
-    descripcion: "Indica si corresponde presentar un programa de viaje. Si corresponde, registra el itinerario; en caso contrario, confirma que no corresponde.",
-    etapa: "pre", fase: 2, carril: "asistente", rol: "asistente", requiere: ["revisar_recursos"],
-  },
-  {
-    clave: "aprobar_preparacion",
-    corto: "Aprobación",
-    titulo: "Aprobación de la preparación por Gestión Documental",
-    descripcion: "Gestión Documental revisa el resumen de la lista impresa, los recursos y equipos aprobados, la coordinación y el programa de viaje, y aprueba la preparación.",
-    etapa: "pre", fase: 3, carril: "general", rol: "gestion_documental", requiere: ["programa_viaje"],
+    etapa: "pre", fase: 3, carril: "general", rol: "gestion_documental", requiere: ["solicitar_recursos"],
   },
   // ══ POST-CAPACITACIÓN ════════════════════════════════════
   {
     clave: "datos_capacitacion",
-    corto: "Datos",
+    corto: "Desarrollo",
     titulo: "Datos generales de la capacitación",
     descripcion: "Indica si se ejecutó la capacitación, los horarios reales y los tipos y detalles de las incidencias. Confirma los datos registrados.",
-    etapa: "post", fase: 1, carril: "general", rol: "asistente", requiere: ["aprobar_preparacion"],
+    etapa: "post", fase: 1, carril: "general", rol: "asistente", requiere: ["revisar_recursos"],
+  },
+  {
+    clave: "registrar_asistencia",
+    corto: "Asistencia",
+    titulo: "Asistencia de beneficiarios",
+    descripcion: "Abre la lista de esta sesión, registra la asistencia de los beneficiarios y confirma el registro.",
+    etapa: "post", fase: 1, carril: "asistente", rol: "asistente", requiere: ["datos_capacitacion"],
+    aplica: (c) => c.pasos.datos_capacitacion?.realizada !== false,
   },
   {
     clave: "recursos_post",
-    corto: "Recursos",
-    titulo: "Recursos",
+    corto: "Devolución",
+    titulo: "Devolución de recursos",
     descripcion: "Registra las unidades de retorno de los recursos y equipos llevados a la capacitación y confirma las cantidades.",
-    etapa: "post", fase: 2, carril: "asistente", rol: "asistente", requiere: ["datos_capacitacion"],
+    etapa: "post", fase: 2, carril: "asistente", rol: "asistente", requiere: ["registrar_asistencia"],
   },
   {
     clave: "escanear_subir",
     corto: "Entregables",
     titulo: "Entregables",
-    descripcion: "Adjunta diapositivas, talleres o prácticas, lista de asistencia, exámenes cuando correspondan, fotos y videos. Confirma los entregables.",
+    descripcion: "Adjunta diapositivas, lista de asistencia, exámenes cuando correspondan, fotos y videos. Los talleres o prácticas son opcionales. Confirma los entregables.",
     etapa: "post", fase: 2, carril: "asistente", rol: "asistente", requiere: ["recursos_post"],
     aplica: (c) => c.pasos.datos_capacitacion?.realizada !== false,
   },
@@ -154,6 +159,13 @@ export const PASOS: DefPaso[] = [
     etapa: "post", fase: 2, carril: "asistente", rol: "asistente", requiere: ["escanear_subir"],
   },
   // ── Fase 6 · Asistente ──────────────────────────────────
+  {
+    clave: "aprobar_cierre",
+    corto: "Aprobación",
+    titulo: "Aprobación de la ejecución y los entregables",
+    descripcion: "Gestión Documental revisa el desarrollo, la devolución de recursos, los entregables y los viáticos de las fases 4 y 5, y aprueba el cierre de la sesión.",
+    etapa: "post", fase: 2, carril: "general", rol: "gestion_documental", requiere: ["rendir_viaticos"],
+  },
   // ── Fase 7 · Gestión Documental y Jefe de Proyectos ─────
 ];
 
@@ -201,9 +213,9 @@ export function resumenFlujo(c: ContextoFlujo, vista: Vista = "pre") {
     porcentaje: aplicables.length ? Math.round((hechos * 100) / aplicables.length) : 0,
     pendientes,
     /** Pre-capacitación completa: la sesión sale a sede */
-    terminado: estadoPaso("aprobar_preparacion", c) === "hecho",
+    terminado: estadoPaso("revisar_recursos", c) === "hecho",
     /** Post-capacitación completa: la sesión quedó cerrada */
-    cerrada: estadoPaso("rendir_viaticos", c) === "hecho",
+    cerrada: estadoPaso("aprobar_cierre", c) === "hecho",
     /** La sesión no se realizó: se reprograma y la post-capacitación termina */
     noRealizada: noRealizada(c),
     reprogramada: false,
@@ -212,5 +224,5 @@ export function resumenFlujo(c: ContextoFlujo, vista: Vista = "pre") {
 
 /** Etapa en la que está la sesión ahora (para abrir el expediente y la bandeja en la vista correcta). */
 export function etapaActual(c: ContextoFlujo): Etapa {
-  return estadoPaso("aprobar_preparacion", c) === "hecho" ? "post" : "pre";
+  return estadoPaso("revisar_recursos", c) === "hecho" ? "post" : "pre";
 }

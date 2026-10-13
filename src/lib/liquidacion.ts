@@ -26,6 +26,15 @@ export type DatosLiquidacion = {
   lineas: LineaGasto[];
 };
 
+/** Personal asignado a la sesión, en el mismo orden que los puestos del formato. */
+export function responsablesViaticos(p: { capacitador?: { nombres: string; apellidos: string } | null; asistente?: { nombres: string; apellidos: string } | null }) {
+  const personas = [{ persona: p.capacitador, puesto: "Capacitador" }, { persona: p.asistente, puesto: "Asistente de Capacitación" }].filter((x) => x.persona);
+  return {
+    nombre: personas.map((x) => `${x.persona!.nombres} ${x.persona!.apellidos}`.trim()).join(" / "),
+    puesto: personas.map((x) => x.puesto).join(" / "),
+  };
+}
+
 export const redondear = (n: number) => Math.round(n * 100) / 100;
 export const totalGastos = (d: Pick<DatosLiquidacion, "lineas">) => redondear(d.lineas.reduce((s, l) => s + (Number(l.monto) || 0), 0));
 export const saldo = (d: DatosLiquidacion) => redondear((Number(d.presupuestado) || 0) - totalGastos(d));

@@ -5,8 +5,8 @@ import { and, eq, gte, lte, ne } from "drizzle-orm";
 import { programaciones } from "@/db/schema";
 import { listarProgramaciones, opcionesFiltros, ruta, combinadas } from "@/lib/consultas";
 import { contextosDe } from "@/lib/preparacion";
-import { DIAS_ANTICIPACION_COMUNICACION, ETAPAS, ROLES, etapaActual, resumenFlujo, type RolFlujo } from "@/lib/flujo-pre";
-import { fechaCorta, hoyISO, hora, inicioSemana, sumarDias, TURNO_LABEL } from "@/lib/fechas";
+import { DIAS_ANTICIPACION_COMUNICACION, ETAPAS, ROLES, etapaActual, faseSeguimiento, resumenFlujo, type RolFlujo } from "@/lib/flujo-pre";
+import { fechaCorta, fechaLarga, hoyISO, hora, inicioSemana, sumarDias, TURNO_LABEL } from "@/lib/fechas";
 import { Encabezado, Kpi, Pestanas, TABS_PRE, Vacio, nombreCompleto, TituloSesion } from "@/components/ui";
 import CampoFecha from "@/components/CampoFecha";
 import { BarraAvance, ChipRol } from "@/components/flujo";
@@ -69,9 +69,9 @@ export default async function Capacitaciones({ searchParams }: PageProps<"/opera
   const base = filas.filter((f) => !texto || `${f.p.sesion.codigo} ${f.p.sesion.nombre} ${ruta(f.p)} ${combinadas(f.p).join(" ")}`.toLowerCase().includes(texto));
   const visibles = rol ? filtradas.filter((f) => f.todo.pendientes.some((x) => x.roles.includes(rol))) : filtradas;
 
-  // Agrupar por sede (como en Capacitación)
-  const porSede = new Map<string, typeof visibles>();
-  for (const f of visibles) porSede.set(f.p.sede.nombre, [...(porSede.get(f.p.sede.nombre) ?? []), f]);
+  // Las sesiones se presentan por día, en el orden de fecha y hora del cronograma.
+  const porDia = new Map<string, typeof visibles>();
+  for (const f of visibles) porDia.set(f.p.fecha, [...(porDia.get(f.p.fecha) ?? []), f]);
 
   const params: Record<string, string> = Object.fromEntries(
     Object.entries({ desde: todo ? "" : desde, hasta: todo ? "" : hasta, todo: todo ? "1" : "", sede: sede || "", capacitador: soloMias ? "" : capacitador || "", estado, q: texto, rol: rol ?? "" })
@@ -188,11 +188,12 @@ export default async function Capacitaciones({ searchParams }: PageProps<"/opera
         <div className="card"><Vacio>{rol ? `No hay actividades pendientes para ${ROLES[rol]}.` : "No hay sesiones con estos filtros."}</Vacio></div>
       )}
 
-      {[...porSede.entries()].map(([nombreSede, grupo]) => (
-        <section key={nombreSede} className="flex flex-col gap-3">
-          <h2 className="text-lg font-semibold text-marino">
-            {nombreSede}
-          </h2>
+      {[...porDia.entries()].map(([fecha, grupo]) => (
+        <section key={fecha} className="flex flex-col gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <h2 className="text-lg font-semibold text-marino">{fechaLarga(fecha)}</h2>
+            <span className="rounded-full bg-[#eef1f5] px-2.5 py-1 text-xs text-texto-2">{grupo.length} {grupo.length === 1 ? "capacitación" : "capacitaciones"}</span>
+          </div>
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 2xl:grid-cols-3">
             {grupo.map(({ p, r, etapa, todo, vencida }) => {
               const siguientes = rol ? todo.pendientes.filter((x) => x.roles.includes(rol)) : r.pendientes;
@@ -204,7 +205,8 @@ export default async function Capacitaciones({ searchParams }: PageProps<"/opera
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex flex-col">
-                      <span className="text-lg font-semibold text-marino">{fechaCorta(p.fecha)} · {hora(p.horaInicio)} – {hora(p.horaFin)}</span>
+                      <span className="text-lg font-semibold text-marino">{p.sede.nombre}</span>
+                      <span className="text-sm font-medium text-marino">{hora(p.horaInicio)} – {hora(p.horaFin)}</span>
                       <span className="text-xs text-texto-2">Turno {TURNO_LABEL[p.turno].toLowerCase()} · {p.aula ?? "Sin aula"}</span>
                     </div>
                     {r.reprogramada ? (
@@ -226,7 +228,7 @@ export default async function Capacitaciones({ searchParams }: PageProps<"/opera
                   </div>
                   <div className="flex flex-col gap-1">
                     <span className="text-[11px] font-semibold uppercase tracking-wide text-texto-2">{ETAPAS[etapa]}</span>
-                    <LineaProceso pasos={r.estados} detenido={etapa === "pre" ? r.reprogramada : r.noRealizada} compacto />
+                    <LineaProceso pasos={todo.estados.map((s) => ({ ...s, fase: faseSeguimiento(s) }))} detenido={todo.reprogramada || todo.noRealizada} compacto />
                     <BarraAvance porcentaje={r.porcentaje} etiqueta={`Avance de ${p.sesion.nombre}`} />
                   </div>
                   <div className="flex min-h-12 flex-col gap-1">
@@ -249,7 +251,7 @@ export default async function Capacitaciones({ searchParams }: PageProps<"/opera
                     {vencida && <span className="text-xs font-semibold text-[#991b1b]">⚠ Validación de programación fuera de plazo</span>}
                   </div>
                   <div className="flex items-center justify-between gap-3 border-t border-[#eef1f5] pt-3 text-sm">
-                    <span>{nombreCompleto(p.capacitador)}</span>
+                    <span>{nombreCompleto(p.capacitador)} / {nombreCompleto(p.asistente)}</span>
                     <span className="text-texto-2">{r.hechos}/{r.total} actividades</span>
                   </div>
                 </Link>

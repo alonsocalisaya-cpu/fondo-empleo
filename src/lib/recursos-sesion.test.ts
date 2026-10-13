@@ -58,32 +58,31 @@ test("permite solicitar equipos sin refrigerio y descarta equipos con cero unida
   assert.ok(leerEquipos(f).error);
 });
 
-test("la salida requiere revisión documental, programa de viaje y conformidad del asistente", () => {
+test("la preparación termina con la revisión documental y habilita Desarrollo", () => {
   const ctx: ContextoFlujo = { pasos: { validar_programacion: { en: "2026-10-09" } }, examen: null, fueraDeArequipa: false };
   assert.equal(estadoPaso("imprimir_ficha", ctx), "disponible");
   assert.equal(estadoPaso("solicitar_recursos", ctx), "bloqueado");
   ctx.pasos.imprimir_ficha = { en: "2026-10-09", listaImpresa: true };
+  assert.equal(estadoPaso("programa_viaje", ctx), "disponible");
+  assert.equal(estadoPaso("solicitar_recursos", ctx), "bloqueado");
+  ctx.pasos.programa_viaje = { en: "2026-10-09", corresponde: false };
   assert.equal(estadoPaso("solicitar_recursos", ctx), "disponible");
   ctx.pasos.solicitar_recursos = { en: "2026-10-09" };
   assert.equal(estadoPaso("revisar_recursos", ctx), "disponible");
   assert.equal(PASO.revisar_recursos.rol, "gestion_documental");
-  assert.equal(estadoPaso("aprobar_preparacion", ctx), "bloqueado");
-  ctx.pasos.revisar_recursos = { en: "2026-10-09", aprobado: true, coordinadoAsistente: true };
-  assert.equal(estadoPaso("programa_viaje", ctx), "disponible");
-  ctx.pasos.programa_viaje = { en: "2026-10-09", corresponde: false };
-  assert.equal(estadoPaso("aprobar_preparacion", ctx), "disponible");
-  assert.equal(PASO.aprobar_preparacion.rol, "gestion_documental");
   assert.equal(estadoPaso("datos_capacitacion", ctx), "bloqueado");
-  ctx.pasos.aprobar_preparacion = { en: "2026-10-09", conforme: true };
+  ctx.pasos.revisar_recursos = { en: "2026-10-09", aprobado: true, coordinadoAsistente: true };
   assert.equal(estadoPaso("datos_capacitacion", ctx), "disponible");
-  assert.equal(PASO.aprobar_preparacion.fase, 3);
+  assert.equal(PASO.aprobar_preparacion, undefined);
+  assert.equal(PASO.revisar_recursos.fase, 3);
+  assert.deepEqual(PASOS.filter((p) => p.etapa === "pre").map((p) => p.clave), ["validar_programacion", "imprimir_ficha", "programa_viaje", "solicitar_recursos", "revisar_recursos"]);
   assert.equal(PASO.lista, undefined);
 });
 
 test("el flujo no incluye actividades del capacitador ni depende de ellas", () => {
   assert.ok(PASOS.every((p) => p.rol !== "capacitador" && p.carril !== "capacitador"));
   for (const paso of PASOS) for (const requisito of paso.requiere) assert.ok(PASO[requisito], `Dependencia inexistente: ${requisito}`);
-  const ctx: ContextoFlujo = { pasos: { rendir_viaticos: { en: "2026-10-12" } }, examen: "ambos", fueraDeArequipa: false };
+  const ctx: ContextoFlujo = { pasos: { aprobar_cierre: { en: "2026-10-12" } }, examen: "ambos", fueraDeArequipa: false };
   assert.equal(resumenFlujo(ctx, "post").cerrada, true);
   const sinHistorial = resumenFlujo(ctx, "completo");
   ctx.pasos.dinamicas = { en: "2026-10-09" };
@@ -93,11 +92,14 @@ test("el flujo no incluye actividades del capacitador ni depende de ellas", () =
 });
 
 test("la post-capacitación contiene datos, recursos, entregables y viáticos", () => {
-  assert.deepEqual(PASOS.filter((p) => p.etapa === "post").map((p) => p.clave), ["datos_capacitacion", "recursos_post", "escanear_subir", "rendir_viaticos"]);
-  const ctx: ContextoFlujo = { pasos: { aprobar_preparacion: { en: "2026-10-12" } }, examen: null, fueraDeArequipa: false };
+  assert.deepEqual(PASOS.filter((p) => p.etapa === "post").map((p) => p.clave), ["datos_capacitacion", "registrar_asistencia", "recursos_post", "escanear_subir", "rendir_viaticos", "aprobar_cierre"]);
+  const ctx: ContextoFlujo = { pasos: { revisar_recursos: { en: "2026-10-12" } }, examen: null, fueraDeArequipa: false };
   assert.equal(estadoPaso("datos_capacitacion", ctx), "disponible");
   assert.equal(estadoPaso("recursos_post", ctx), "bloqueado");
   ctx.pasos.datos_capacitacion = { en: "2026-10-12" };
+  assert.equal(estadoPaso("registrar_asistencia", ctx), "disponible");
+  assert.equal(estadoPaso("recursos_post", ctx), "bloqueado");
+  ctx.pasos.registrar_asistencia = { en: "2026-10-12" };
   assert.equal(estadoPaso("recursos_post", ctx), "disponible");
   ctx.pasos.recursos_post = { en: "2026-10-12" };
   assert.equal(estadoPaso("escanear_subir", ctx), "disponible");
@@ -106,5 +108,7 @@ test("la post-capacitación contiene datos, recursos, entregables y viáticos", 
   assert.equal(estadoPaso("rendir_viaticos", ctx), "disponible");
   assert.equal(resumenFlujo(ctx, "post").cerrada, false);
   ctx.pasos.rendir_viaticos = { en: "2026-10-12" };
+  assert.equal(resumenFlujo(ctx, "post").cerrada, false);
+  ctx.pasos.aprobar_cierre = { en: "2026-10-12" };
   assert.equal(resumenFlujo(ctx, "post").cerrada, true);
 });

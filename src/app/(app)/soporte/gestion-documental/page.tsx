@@ -11,9 +11,8 @@ import { fechaCorta, hoyISO, sumarDias } from "@/lib/fechas";
 import { Encabezado, Vacio } from "@/components/ui";
 import FormSubirDocumento from "./FormSubirDocumento";
 import EntregablesSesiones from "./EntregablesSesiones";
-import { eliminarDocumento } from "@/lib/acciones-maestros";
-import BotonEliminar from "@/components/BotonEliminar";
-import { TIPO_DOC, enlaceDoc, tamanoLegible } from "@/lib/documentos";
+import { TIPO_DOC } from "@/lib/documentos";
+import { Desplegable, ArchivosRepositorio } from "./PresentacionRepositorio";
 
 export const metadata = { title: "Repositorio documental" };
 
@@ -130,10 +129,7 @@ export default async function GestionDocumental({ searchParams }: PageProps<"/so
       </nav>
 
       {parte === "fichas" && (
-      <section className="card">
-        <h2 className="border-b border-borde px-6 py-4 text-lg font-semibold text-marino">
-          Requerimientos por revisar <span className="ml-1 rounded-full bg-[#fce7f3] px-2 py-0.5 text-sm text-[#9d174d]">{porRevisar.length}</span>
-        </h2>
+      <Desplegable titulo="Requerimientos por revisar" cantidad={String(porRevisar.length)}>
         {porRevisar.length === 0 ? (
           <Vacio>No hay requerimientos esperando revisión.</Vacio>
         ) : (
@@ -146,7 +142,7 @@ export default async function GestionDocumental({ searchParams }: PageProps<"/so
             ))}
           </ul>
         )}
-      </section>
+      </Desplegable>
       )}
 
       {parte !== "fichas" && <>
@@ -173,19 +169,13 @@ export default async function GestionDocumental({ searchParams }: PageProps<"/so
       {parte === "academico" ? (
         <div className="space-y-4">
           {arbol.length === 0 ? <Vacio>Este proyecto todavía no tiene estructura de capacitaciones.</Vacio> : arbol.map((c) => (
-            <section key={c.id} className="card overflow-hidden">
-              <header className="border-b border-borde bg-[#eef2f7] px-5 py-3">
-                <p className="text-xs font-bold uppercase tracking-wide text-texto-2">Componente {c.codigo}</p>
-                <h3 className="font-semibold text-marino">{c.nombre}</h3>
-              </header>
+            <Desplegable key={c.id} titulo={`Componente ${c.codigo} · ${c.nombre}`}>
               <div className="divide-y divide-borde px-4">
                 {c.actividades.map((a) => (
-                  <section key={a.id} className="py-4">
-                    <h4 className="mb-3 text-sm font-bold text-marino">Actividad {a.codigo} · {a.nombre}</h4>
+                  <Desplegable key={a.id} titulo={`Actividad ${a.codigo} · ${a.nombre}`}>
                     <div className="space-y-3">
                       {a.modulos.map((m) => (
-                        <section key={m.id} className="rounded-lg border border-[#dce3ec] bg-[#fafbfd] p-3">
-                          <h5 className="mb-2 text-[13px] font-semibold text-texto-2">{m.codigo} · {m.nombre}</h5>
+                        <Desplegable key={m.id} titulo={`${m.codigo} · ${m.nombre}`}>
                           <div className="space-y-2">
                             {m.sesiones.filter((s) => !sesionSel || s.id === sesionSel).map((s) => {
                               const examen = examenPorSesion.get(s.id);
@@ -197,29 +187,15 @@ export default async function GestionDocumental({ searchParams }: PageProps<"/so
                                 return true;
                               }).map(([valor, texto]) => ({ valor, texto }));
                               return (
-                                <div key={s.id} className="grid rounded-md border border-[#dce3ec] bg-white lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+                                <Desplegable key={s.id} titulo={`${s.codigo} · ${s.nombre}`} cantidad={`${documentosSesion.length} archivo(s)`}>
                                   <div className="flex flex-wrap content-start items-center gap-2 px-3 py-3 text-sm">
-                                    <span className="text-xs font-bold text-marino">{s.codigo}</span>
-                                    <span className="w-full font-semibold">{s.nombre}</span>
                                     {(examen === "entrada" || examen === "ambos") && <span className="rounded-full bg-[#ede9fe] px-2 py-0.5 text-[11px] font-semibold text-[#5b21b6]">Examen de entrada</span>}
                                     {(examen === "salida" || examen === "ambos") && <span className="rounded-full bg-[#ede9fe] px-2 py-0.5 text-[11px] font-semibold text-[#5b21b6]">Examen de salida</span>}
                                     <span className="rounded-full bg-[#eef1f5] px-2 py-0.5 text-[11px] text-texto-2">{documentosSesion.length} archivo(s)</span>
                                   </div>
-                                  <div className="min-w-0 space-y-3 border-t border-[#e6ebf1] p-3 lg:border-l lg:border-t-0">
+                                  <div className="min-w-0 space-y-3">
                                     {documentosSesion.length ? (
-                                      <ul className="divide-y divide-[#eef1f5] rounded-md border border-[#e6ebf1]">
-                                        {documentosSesion.map((d) => (
-                                          <li key={d.id} className="flex flex-wrap items-center gap-2 px-3 py-2 text-sm">
-                                            <span className="rounded bg-[#eef1f5] px-2 py-0.5 text-xs font-semibold text-texto-2">{TIPO[d.tipo]}</span>
-                                            <a href={enlaceDoc(d)} target={d.archivo ? undefined : "_blank"} rel="noreferrer" className="enlace min-w-0 flex-1">{d.archivo ? "⬇" : "↗"} {d.nombre}</a>
-                                            {d.version && <span className="text-xs text-texto-2">{d.version}</span>}
-                                            {d.tamano != null && <span className="text-xs text-texto-2">{tamanoLegible(d.tamano)}</span>}
-                                            <SiPuede modulo="documental">
-                                              <BotonEliminar accion={eliminarDocumento} campos={{ id: d.id }} etiqueta="Quitar" pregunta={`¿Quitar «${d.nombre}»?`} detalle={d.archivo ? "Se borra el archivo guardado." : undefined} />
-                                            </SiPuede>
-                                          </li>
-                                        ))}
-                                      </ul>
+                                      <ArchivosRepositorio docs={documentosSesion} />
                                     ) : <p className="text-xs text-texto-2">Todavía no hay documentos para esta sesión.</p>}
                                     <SiPuede modulo="documental">
                                       <FormSubirDocumento
@@ -230,17 +206,17 @@ export default async function GestionDocumental({ searchParams }: PageProps<"/so
                                       />
                                     </SiPuede>
                                   </div>
-                                </div>
+                                </Desplegable>
                               );
                             })}
                           </div>
-                        </section>
+                        </Desplegable>
                       ))}
                     </div>
-                  </section>
+                  </Desplegable>
                 ))}
               </div>
-            </section>
+            </Desplegable>
           ))}
         </div>
       ) : (

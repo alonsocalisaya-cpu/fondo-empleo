@@ -2,9 +2,9 @@ import { exigirUsuario, puedeVerSesion } from "@/lib/auth";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
-import { eq } from "drizzle-orm";
+import { and, eq, or, sql, asc } from "drizzle-orm";
 import { db } from "@/db";
-import { asistencias, inscripciones, programaciones } from "@/db/schema";
+import { asistencias, inscripciones, programaciones, participantes, sedes } from "@/db/schema";
 import { conRuta, ruta, combinadas } from "@/lib/consultas";
 import { fechaCorta, hora, TURNO_LABEL } from "@/lib/fechas";
 import { ChipEstado, Encabezado, nombreCompleto } from "@/components/ui";
@@ -20,10 +20,17 @@ export default async function PaginaAsistencia({ params }: PageProps<"/operativo
   const p = await db.query.programaciones.findFirst({ where: eq(programaciones.id, id), with: conRuta });
   if (!p || !puedeVerSesion(await exigirUsuario(), p)) notFound();
 
-  const [ins, asis, ex] = await Promise.all([
+  const [ins, asis, ex, pendientes] = await Promise.all([
     db.query.inscripciones.findMany({ where: eq(inscripciones.programacionId, id), with: { participante: true } }),
     db.select().from(asistencias).where(eq(asistencias.programacionId, id)),
     examenes([p.sesionId, ...p.combinadas.map((c) => c.sesionId)]),
+    db.select({ participanteId: participantes.id, nombres: participantes.nombres, apellidos: participantes.apellidos, dni: participantes.dni })
+      .from(participantes).innerJoin(sedes, eq(participantes.sedeId, sedes.id))
+      .where(and(
+        eq(sedes.estructuraId, p.sede.estructuraId), eq(sedes.grupo, p.sede.grupo),
+        p.sede.nombre === "Paucarpata virtual" ? undefined : or(eq(participantes.turno, "ambos"), eq(participantes.turno, p.turno)),
+        sql`not exists (select 1 from inscripciones i where i.programacion_id = ${id} and i.participante_id = ${participantes.id})`,
+      )).orderBy(asc(participantes.apellidos), asc(participantes.nombres)),
   ]);
   // ¿Esta sesión tiene examen? (1ra sesión → entrada, última → salida)
   const examen = examenDe(p, ex);
@@ -90,7 +97,7 @@ export default async function PaginaAsistencia({ params }: PageProps<"/operativo
         {p.listaCerrada && <span className="text-texto-2">Esta lista está cerrada. Para modificarla, usa «Reabrir lista».</span>}
       </div>
 
-      <ListaAsistencia key={p.id} programacionId={p.id} filas={filas} cerrada={p.listaCerrada} examen={examen} />
+      <ListaAsistencia key={p.id} programacionId={p.id} filas={filas} pendientes={pendientes} cerrada={p.listaCerrada} examen={examen} />
     </>
   );
 }

@@ -4,10 +4,9 @@ import { db } from "@/db";
 import { liquidaciones, type PasoRegistro } from "@/db/schema";
 import { GASTOS, type Ficha2 } from "./ficha2";
 import { hoyISO, TURNO_LABEL } from "./fechas";
-import { MAX_LINEAS, redondear, type DatosLiquidacion, type LineaGasto } from "./liquidacion";
+import { MAX_LINEAS, redondear, responsablesViaticos, type DatosLiquidacion, type LineaGasto } from "./liquidacion";
 
 const dma = (iso: string) => iso.split("-").reverse().join("/");
-const nombreDe = (x: { nombres: string; apellidos: string } | null | undefined) => (x ? `${x.nombres} ${x.apellidos}`.trim() : "");
 
 type Prog = {
   id: number;
@@ -26,7 +25,8 @@ type Prog = {
  */
 export async function liquidacionDe(p: Prog, pasos: Record<string, PasoRegistro>): Promise<{ datos: DatosLiquidacion; guardada: boolean; actualizadoEn: Date | null }> {
   const g = await db.query.liquidaciones.findFirst({ where: eq(liquidaciones.programacionId, p.id) });
-  if (g) return { datos: g.datos, guardada: true, actualizadoEn: g.actualizadoEn };
+  const responsables = responsablesViaticos(p);
+  if (g) return { datos: responsables.nombre ? { ...g.datos, ...responsables } : g.datos, guardada: true, actualizadoEn: g.actualizadoEn };
 
   const monto = (k: string) => Number((pasos[k] as Record<string, unknown> | undefined)?.monto ?? 0);
   const f2 = (pasos.llenar_ficha2 ?? {}) as Ficha2;
@@ -45,8 +45,7 @@ export async function liquidacionDe(p: Prog, pasos: Record<string, PasoRegistro>
     datos: {
       osft: "",
       fecha: dma(hoyISO()),
-      nombre: nombreDe(p.asistente) || nombreDe(p.capacitador),
-      puesto: p.asistente ? "Asistente de Capacitación" : "Capacitador",
+      ...responsables,
       descripcion: `Capacitación «${sesiones}» – ${p.sede.nombre}, ${dma(p.fecha)} (turno ${TURNO_LABEL[p.turno].toLowerCase()})`,
       cliente: "FONDOEMPLEO",
       presupuestado: monto("entregar_viaticos") || monto("solicitar_viaticos"),
@@ -82,7 +81,7 @@ export function leerLiquidacion(json: string): DatosLiquidacion | string {
   return {
     osft: t(d.osft, 40),
     fecha: t(d.fecha, 10),
-    nombre: t(d.nombre, 120),
+    nombre: t(d.nombre, 300),
     puesto: t(d.puesto, 80),
     descripcion: t(d.descripcion, 250),
     cliente: t(d.cliente, 120),

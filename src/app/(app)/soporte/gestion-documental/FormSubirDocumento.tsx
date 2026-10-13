@@ -17,6 +17,7 @@ export default function FormSubirDocumento({ sesiones, tipos, sesionInicial, pro
   const router = useRouter();
   const id = useId();
   const [abierto, setAbierto] = useState(false);
+  const [nombreOpcional, setNombreOpcional] = useState("");
   const ref = useRef<HTMLFormElement>(null);
   const [items, setItems] = useState<Item[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -53,7 +54,7 @@ export default function FormSubirDocumento({ sesiones, tipos, sesionInicial, pro
     const pendientes: File[] = [];
     for (const [i, a] of archivos.entries()) {
       try {
-        await subirArchivo(
+        const subido = await subirArchivo(
           a,
           {
             sesionId: String(f.get("sesionId")),
@@ -64,7 +65,7 @@ export default function FormSubirDocumento({ sesiones, tipos, sesionInicial, pro
           },
           (pct) => actualizar(nuevos[i].clave, { pct }),
         );
-        actualizar(nuevos[i].clave, { id: 1, pct: 100 });
+        actualizar(nuevos[i].clave, { id: subido.id, pct: 100 });
         ok++;
       } catch (err) {
         pendientes.push(a);
@@ -73,14 +74,16 @@ export default function FormSubirDocumento({ sesiones, tipos, sesionInicial, pro
     }
     setSubiendo(false);
     if (ok) {
+      setNombreOpcional("");
       actualizarSeleccion(pendientes);
+      if (pendientes.length === 0) setAbierto(false);
       router.refresh();
     }
   };
 
   return (
     <div className="space-y-3">
-      <button type="button" className="btn-secundario" aria-expanded={abierto} aria-controls={`${id}-formulario`} disabled={subiendo} onClick={() => setAbierto(!abierto)}>
+      <button type="button" className="btn-secundario" aria-expanded={abierto} aria-controls={`${id}-formulario`} disabled={subiendo} onClick={() => { if (abierto) setNombreOpcional(""); setAbierto(!abierto); }}>
         {abierto ? "Cerrar formulario" : "+ Subir documento"}
       </button>
       <div id={`${id}-formulario`} hidden={!abierto}>
@@ -141,7 +144,7 @@ export default function FormSubirDocumento({ sesiones, tipos, sesionInicial, pro
         </div>
         <div className="order-2">
           <label htmlFor={`${id}-nombre`} className="etiqueta">Nombre (opcional)</label>
-          <input id={`${id}-nombre`} name="nombre" placeholder="Ejemplo: (textil)" className="campo" />
+          <input id={`${id}-nombre`} name="nombre" value={nombreOpcional} onChange={(e) => setNombreOpcional(e.target.value)} placeholder="Ejemplo: (textil)" className="campo" />
           <p className="mt-0.5 text-[11px] text-texto-2">Nombre opcional - Nombre del documento.</p>
         </div>
         <div className="order-4 border-t border-borde pt-4">

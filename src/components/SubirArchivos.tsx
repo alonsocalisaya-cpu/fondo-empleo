@@ -16,6 +16,7 @@ export function ListaSubidas({ items, alQuitar }: { items: Item[]; alQuitar?: (i
             <span className="min-w-0 flex-1 truncate">
               {it.error ? "✕" : it.id ? "✓" : "⬆"} {it.nombre} <span className="text-xs text-texto-2">· {tamanoTexto(it.tamano)}</span>
             </span>
+            {it.id && <a href={`/archivos/${it.id}`} className="enlace shrink-0 text-xs" aria-label={`Descargar ${it.nombre}`}>Descargar</a>}
             <span className={`shrink-0 text-xs font-semibold ${it.error ? "text-[#991b1b]" : it.id ? "text-[#166534]" : "text-marino"}`}>
               {it.error ? "Error" : it.id ? "Subido" : it.pct === 100 ? "Guardando…" : `${it.pct}%`}
             </span>
@@ -50,6 +51,8 @@ export default function SubirArchivos({
   accept,
   etiqueta,
   ayuda,
+  destacado = false,
+  alCambiarCantidad,
 }: {
   programacionId: number;
   tipo?: string;
@@ -61,14 +64,22 @@ export default function SubirArchivos({
   accept?: string;
   etiqueta: string;
   ayuda?: string;
+  destacado?: boolean;
+  alCambiarCantidad?: (cantidad: number) => void;
 }) {
   const [items, setItems] = useState<Item[]>([]);
+  const [arrastrando, setArrastrando] = useState(false);
+  const cantidadGuardada = useRef(0);
   const ref = useRef<HTMLInputElement>(null);
   const actualizar = (clave: string, cambio: Partial<Item>) => setItems((l) => l.map((x) => (x.clave === clave ? { ...x, ...cambio } : x)));
 
   const alElegir = async (e: ChangeEvent<HTMLInputElement>) => {
     const archivos = [...(e.target.files ?? [])];
-    const form = e.target.form;
+    await subir(archivos);
+  };
+
+  const subir = async (archivos: File[]) => {
+    const form = ref.current?.form;
     const tipoElegido = tipoCampo ? (form?.elements.namedItem(tipoCampo) as HTMLSelectElement | null)?.value : tipo;
     const nuevos = archivos.map((a, i) => ({ clave: `${Date.now()}-${i}-${a.name}`, nombre: a.name, tamano: a.size, pct: 0 }));
     setItems((l) => [...l, ...nuevos]);
@@ -79,6 +90,8 @@ export default function SubirArchivos({
       try {
         const r = await subirArchivo(a, { programacionId, tipo: tipoElegido, version, seccion, nombre: a.name }, (pct) => actualizar(clave, { pct }));
         actualizar(clave, { id: r.id, pct: 100 });
+        cantidadGuardada.current++;
+        alCambiarCantidad?.(cantidadGuardada.current);
       } catch (err) {
         actualizar(clave, { error: (err as Error).message });
       }
@@ -86,15 +99,36 @@ export default function SubirArchivos({
   };
 
   const quitar = async (it: Item) => {
+    if (it.id) {
+      try {
+        const respuesta = await fetch(`/api/archivos/${it.id}`, { method: "DELETE" });
+        if (!respuesta.ok) throw new Error("No se pudo quitar el archivo. Inténtalo nuevamente.");
+      } catch {
+        actualizar(it.clave, { error: "No se pudo quitar el archivo. Inténtalo nuevamente." });
+        return;
+      }
+      cantidadGuardada.current--;
+      alCambiarCantidad?.(cantidadGuardada.current);
+    }
     setItems((l) => l.filter((x) => x.clave !== it.clave));
-    if (it.id) await fetch(`/api/archivos/${it.id}`, { method: "DELETE" }).catch(() => {});
   };
 
   const subiendo = items.filter((x) => !x.id && !x.error).length;
   return (
     <div className="flex flex-col gap-1.5">
-      <label className="etiqueta" htmlFor={`sa-${programacionId}-${etiqueta}`}>{etiqueta}</label>
-      <input id={`sa-${programacionId}-${etiqueta}`} ref={ref} type="file" multiple accept={accept} onChange={alElegir} className="campo py-1.5" />
+      {destacado ? <div
+        onDragOver={(e) => { e.preventDefault(); setArrastrando(true); }}
+        onDragLeave={() => setArrastrando(false)}
+        onDrop={(e) => { e.preventDefault(); setArrastrando(false); void subir([...e.dataTransfer.files]); }}
+        className={`flex flex-wrap items-center justify-between gap-3 rounded-xl border-2 border-dashed p-4 transition-colors ${arrastrando ? "border-marino bg-[#eaf1fa]" : "border-[#ccd7e5] bg-[#f8fafc]"}`}
+      >
+        <div><p className="text-sm font-medium text-marino">{etiqueta}</p><p className="mt-1 text-xs text-texto-2">Arrastra tus archivos aquí o selecciónalos.</p></div>
+        <button type="button" onClick={() => ref.current?.click()} className="btn-secundario px-4 py-2 text-sm">+ Agregar archivos</button>
+        <input id={`sa-${programacionId}-${etiqueta}`} ref={ref} type="file" multiple accept={accept} onChange={alElegir} className="sr-only" aria-label={etiqueta} />
+      </div> : <>
+        <label className="etiqueta" htmlFor={`sa-${programacionId}-${etiqueta}`}>{etiqueta}</label>
+        <input id={`sa-${programacionId}-${etiqueta}`} ref={ref} type="file" multiple accept={accept} onChange={alElegir} className="campo py-1.5" />
+      </>}
       {ayuda && <p className="text-[11px] text-texto-2">{ayuda}</p>}
       <ListaSubidas items={items} alQuitar={quitar} />
       {items.filter((x) => x.id).map((x) => <input key={x.clave} type="hidden" name="docId" value={x.id} />)}

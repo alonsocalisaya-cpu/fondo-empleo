@@ -1,6 +1,6 @@
 import SiPuede from "@/components/SiPuede";
 import { connection } from "next/server";
-import { and, eq, ilike, inArray, or, sql } from "drizzle-orm";
+import { and, eq, ilike, or, sql, asc, desc, isNull } from "drizzle-orm";
 import Link from "next/link";
 import { db } from "@/db";
 import { asistencias, estructuras, inscripciones, participantes, sedes } from "@/db/schema";
@@ -18,10 +18,22 @@ export default async function Participantes({ searchParams }: PageProps<"/operat
   await connection();
   const sp = await searchParams;
   const q = typeof sp.q === "string" ? sp.q.trim() : "";
-  const patron = `%${q}%`;
 
   const sede = Number(sp.sede) || 0;
-  const programa = Number(sp.programa) || 0;
+  const sinSede = sp.sede === "sin";
+  const ordenes = {
+    beneficiario: sql`${participantes.apellidos}`,
+    dni: sql`${participantes.dni}`,
+    sede: sql`${sedes.nombre}`,
+    inscritas: sql`(select count(*) from ${inscripciones} where ${inscripciones.participanteId} = ${participantes.id})`,
+    asistencias: sql`count(${asistencias.id})`,
+    porcentaje: sql`100.0 * count(${asistencias.id}) filter (where ${asistencias.estado} in ('presente','tarde')) / nullif(count(${asistencias.id}), 0)`,
+    notaE: sql`avg(${asistencias.notaEntrada})`,
+    notaS: sql`avg(${asistencias.notaSalida})`,
+  };
+  type Orden = keyof typeof ordenes;
+  const orden: Orden = typeof sp.orden === "string" && Object.hasOwn(ordenes, sp.orden) ? sp.orden as Orden : "beneficiario";
+  const direccion = sp.direccion === "desc" ? "desc" : "asc";
 
   const [listaSedes, programas, porSede] = await Promise.all([
     db.query.sedes.findMany({ where: (t, { eq }) => eq(t.activa, true), orderBy: (t) => t.nombre }),
@@ -31,7 +43,6 @@ export default async function Participantes({ searchParams }: PageProps<"/operat
       .from(participantes)
       .groupBy(participantes.sedeId),
   ]);
-  const sedesDelPrograma = programa ? listaSedes.filter((x) => x.estructuraId === programa).map((x) => x.id) : [];
   const filas = await db
       .select({
         p: participantes,
@@ -47,18 +58,23 @@ export default async function Participantes({ searchParams }: PageProps<"/operat
       .leftJoin(asistencias, eq(asistencias.participanteId, participantes.id))
       .where(
         and(
-          q ? or(ilike(participantes.nombres, patron), ilike(participantes.apellidos, patron), ilike(participantes.dni, patron)) : undefined,
+          ...q.split(/\s+/).filter(Boolean).map((termino) => or(
+            ilike(sql`concat_ws(' ', ${participantes.nombres}, ${participantes.apellidos})`, `%${termino}%`),
+            ilike(participantes.dni, `%${termino}%`), ilike(participantes.email, `%${termino}%`), ilike(participantes.telefono, `%${termino}%`),
+          )),
           sede ? eq(participantes.sedeId, sede) : undefined,
-          programa ? (sedesDelPrograma.length ? inArray(participantes.sedeId, sedesDelPrograma) : sql`false`) : undefined,
+          sinSede ? isNull(participantes.sedeId) : undefined,
         ),
       )
       .groupBy(participantes.id, sedes.nombre)
-      .orderBy(sedes.nombre, participantes.apellidos, participantes.nombres)
+      .orderBy(sql`${direccion === "desc" ? desc(ordenes[orden]) : asc(ordenes[orden])} nulls last`, asc(participantes.apellidos), orden === "beneficiario" && direccion === "desc" ? desc(participantes.nombres) : asc(participantes.nombres), asc(participantes.id))
       .limit(300);
   const opcSedes = listaSedes.map((x) => ({ id: x.id, nombre: x.nombre }));
   const nSede = new Map(porSede.map((x) => [x.id, x.n]));
   const total = porSede.reduce((a, x) => a + x.n, 0);
-  const urlPrograma = (id: number) => `/operativo/capacitaciones/participantes?${new URLSearchParams({ ...(id ? { programa: String(id) } : {}), ...(q ? { q } : {}) })}`;
+  const parametros = { q, sede: sinSede ? "sin" : sede ? String(sede) : "", orden, direccion };
+  const url = (cambios: Partial<typeof parametros>) => `/operativo/capacitaciones/participantes?${new URLSearchParams(Object.entries({ ...parametros, ...cambios }).filter(([, valor]) => valor))}`;
+  const encabezado = (clave: Orden, titulo: string) => <th className="th whitespace-nowrap" aria-sort={orden === clave ? direccion === "asc" ? "ascending" : "descending" : "none"}><Link href={url({ orden: clave, direccion: orden === clave && direccion === "asc" ? "desc" : "asc" })} className="inline-flex items-center gap-2 hover:text-marino hover:underline" title={`Ordenar por ${titulo}`}><span>{titulo}</span><span aria-hidden="true" className={orden === clave ? "text-marino" : "text-texto-2"}>{orden === clave ? direccion === "asc" ? "↑" : "↓" : "↕"}</span></Link></th>;
   return (
     <>
       <Encabezado antetitulo="Operativo · Capacitaciones" titulo="Beneficiarios" />
@@ -79,53 +95,43 @@ export default async function Participantes({ searchParams }: PageProps<"/operat
         ]}
       />
       </SiPuede>
-      <nav aria-label="Beneficiarios por programa" className="flex flex-wrap items-center gap-2">
-        {[{ id: 0, nombre: "Todos" }, ...programas].map((x) => (
-          <Link key={x.id} href={urlPrograma(x.id)} aria-current={programa === x.id ? "page" : undefined} className={`rounded-full border px-3 py-1.5 text-[13px] font-semibold ${programa === x.id ? "border-marino bg-marino text-white" : "border-borde-fuerte bg-white text-marino"}`}>{x.nombre}</Link>
-        ))}
-      </nav>
-      <form className="flex items-end gap-3">
-        {programa > 0 && <input type="hidden" name="programa" value={programa} />}
-        <div className="w-72">
+      <form key={JSON.stringify(parametros)} className="card flex flex-wrap items-end gap-3 p-4">
+        <input type="hidden" name="orden" value={orden} /><input type="hidden" name="direccion" value={direccion} />
+        <div className="w-full sm:w-72">
           <label htmlFor="sede" className="etiqueta">Buscar por sede</label>
-          <select id="sede" name="sede" defaultValue={sede || ""} className="campo">
-            <option value="">Todas las sedes ({programa ? listaSedes.filter((x) => x.estructuraId === programa).reduce((n, x) => n + (nSede.get(x.id) ?? 0), 0) : total})</option>
-            {listaSedes.filter((x) => (!programa || x.estructuraId === programa) && nSede.get(x.id)).map((x) => <option key={x.id} value={x.id}>{x.nombre} ({nSede.get(x.id)})</option>)}
+          <select id="sede" name="sede" defaultValue={sinSede ? "sin" : sede || ""} className="campo">
+            <option value="">Todas las sedes ({total})</option>
+            <option value="sin">Sin sede ({nSede.get(null) ?? 0})</option>
+            {listaSedes.filter((x) => nSede.get(x.id)).map((x) => <option key={x.id} value={x.id}>{x.nombre} ({nSede.get(x.id)})</option>)}
           </select>
         </div>
-        <div className="w-80">
-          <label htmlFor="q" className="etiqueta">Buscar por nombre o DNI</label>
-          <input id="q" name="q" defaultValue={q} className="campo" />
+        <div className="w-full sm:w-80">
+          <label htmlFor="q" className="etiqueta">Nombre, DNI, correo o teléfono</label>
+          <input id="q" name="q" defaultValue={q} placeholder="Buscar beneficiario…" className="campo" />
         </div>
-        <button className="btn-secundario">Buscar</button>
+        <button className="btn-oscuro">Filtrar</button>
+        <Link href="/operativo/capacitaciones/participantes" className="btn-secundario">Limpiar filtros</Link>
       </form>
       <section className="card overflow-x-auto">
         {filas.length === 0 ? <Vacio>No se encontraron participantes.</Vacio> : (
           <table className="w-full text-sm">
-            <thead><tr><th className="th">Beneficiario</th><th className="th">DNI</th><th className="th">Sede y turno</th><th className="th">Sesiones inscritas</th><th className="th">Asistencias registradas</th><th className="th">% asistencia</th><th className="th whitespace-nowrap">Notas (prom.)</th><th className="th"><span className="sr-only">Detalle</span></th><th className="th"><span className="sr-only">Acciones</span></th></tr></thead>
+            <thead><tr>{encabezado("beneficiario", "Beneficiario")}{encabezado("dni", "DNI")}{encabezado("sede", "Sede")}{encabezado("inscritas", "Sesiones inscritas")}{encabezado("asistencias", "Asistencias registradas")}{encabezado("porcentaje", "% asistencia")}{encabezado("notaE", "Nota entrada (prom.)")}{encabezado("notaS", "Nota salida (prom.)")}<th className="th"><span className="sr-only">Editar</span></th><th className="th"><span className="sr-only">Acciones</span></th></tr></thead>
             <tbody>
               {filas.map(({ p, sede: nombreSede, inscritas, sesiones, asistio, notaE, notaS }) => (
                 <tr key={p.id}>
-                  <td className="td font-medium"><Link href={`/operativo/capacitaciones/participantes/${p.id}`} className="hover:underline">{p.apellidos}, {p.nombres}</Link></td>
+                  <td className="td font-medium">{p.apellidos}, {p.nombres}</td>
                   <td className="td">{p.dni}</td>
                   <td className="td">
-                    <SiPuede modulo="beneficiarios" sino={<>{nombreSede ?? "Sin sede"} · {p.turno ? TURNO[p.turno] ?? p.turno : "—"}</>}>
+                    <SiPuede modulo="beneficiarios" sino={<>{nombreSede ?? "Sin sede"}</>}>
                       <SedeTurno id={p.id} sedeId={p.sedeId} turno={p.turno} sedes={p.sedeId && !opcSedes.some((x) => x.id === p.sedeId) ? [...opcSedes, { id: p.sedeId, nombre: `${nombreSede} (inactiva)` }] : opcSedes} />
                     </SiPuede>
                   </td>
                   <td className="td">{inscritas}</td>
                   <td className="td">{sesiones}</td>
                   <td className="td">{sesiones ? `${Math.round((asistio * 100) / sesiones)}%` : "—"}</td>
-                  <td className="td whitespace-nowrap text-[13px]">
-                    {notaE == null && notaS == null ? <span className="text-texto-2">—</span> : (
-                      <>
-                        {notaE != null && <span title="Promedio de exámenes de entrada">E: <strong>{notaE}</strong></span>}
-                        {notaE != null && notaS != null && " · "}
-                        {notaS != null && <span title="Promedio de exámenes de salida">S: <strong>{notaS}</strong></span>}
-                      </>
-                    )}
-                  </td>
-                  <td className="td"><Link href={`/operativo/capacitaciones/participantes/${p.id}`} className="enlace whitespace-nowrap text-[13px]">Ver detalle →</Link></td>
+                  <td className="td">{notaE ?? "—"}</td>
+                  <td className="td">{notaS ?? "—"}</td>
+                  <td className="td"><SiPuede modulo="beneficiarios"><Link href={`/operativo/capacitaciones/participantes/${p.id}/editar`} className="btn-secundario whitespace-nowrap px-3 py-2 text-[13px]">Editar</Link></SiPuede></td>
                   <td className="td text-right">
                     <SiPuede modulo="beneficiarios">
                     <BotonEliminar
