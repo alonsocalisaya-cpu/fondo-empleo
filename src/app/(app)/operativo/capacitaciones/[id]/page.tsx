@@ -23,6 +23,8 @@ import DatosPost from "./DatosPost";
 import EntregablesPost from "./EntregablesPost";
 import ViaticosPost from "./ViaticosPost";
 import RegistroCompleto, { ResumenCierre } from "./RegistroCompleto";
+import ResumenRegistroNotas from "./ResumenRegistroNotas";
+import { resumenRegistroNotas } from "@/lib/seguimiento-examenes";
 import { recursosDe } from "@/lib/recursos-sesion";
 import { listarPlantillasViaje } from "@/lib/plantillas-viaje";
 import { DOCUMENTOS_REVISION, ENTREGABLES, GASTOS, PREGUNTAS_PREPARACION, type Ficha2 } from "@/lib/ficha2";
@@ -200,7 +202,10 @@ function Resumen({ clave, r }: { clave: string; r: PasoRegistro }) {
       break;
     }
     case "registrar_asistencia":
-      partes.push(Number(d.registros) ? `${d.presentes ?? d.registros} presentes de ${d.registros} registrados` : "Sin participantes inscritos");
+      partes.push("Registro de asistencia confirmado");
+      break;
+    case "registrar_notas":
+      partes.push("Registro de notas confirmado");
       break;
     case "rendir_viaticos":
       partes.push(
@@ -505,10 +510,10 @@ function Campos({ clave, e }: { clave: string; e: Exp }) {
         </div>
       );
     case "solicitar_recursos":
-      return <SolicitudRecursos />;
+      return <SolicitudRecursos inventario={e.inventario} />;
     case "revisar_recursos":
       return <>
-        <SolicitudRecursos iniciales={recursosDe(pasos.solicitar_recursos?.recursos)} equiposIniciales={recursosDe(pasos.solicitar_recursos?.equipos)} revision />
+        <SolicitudRecursos inventario={e.inventario} iniciales={recursosDe(pasos.solicitar_recursos?.recursos)} equiposIniciales={recursosDe(pasos.solicitar_recursos?.equipos)} revision />
         <label className="etiqueta">Comentario de la revisión (opcional)<textarea name="obs" maxLength={2000} className="campo" rows={2} placeholder="Indica los ajustes o acuerdos realizados." /></label>
         <label className="flex items-start gap-2 text-sm"><input type="checkbox" name="coordinadoAsistente" value="si" required className="mt-1" />Confirmo que ya coordiné los requerimientos con el asistente.</label>
         <label className="flex items-start gap-2 text-sm"><input type="checkbox" name="recursosAprobados" value="si" required className="mt-1" />Apruebo los requerimientos tal como se muestran.</label>
@@ -524,7 +529,7 @@ function Campos({ clave, e }: { clave: string; e: Exp }) {
       return <>
         <ResumenCierre pasos={pasos} programacionId={e.p.id} archivos={e.docs.map((d) => ({ id: d.id, nombre: d.nombre, href: enlaceDoc(d), seccion: seccionDe(d) }))} liquidacion={e.liquidacion.guardada ? e.liquidacion.datos : undefined} />
         <label className="etiqueta">Comentario (opcional)<textarea name="obs" maxLength={2000} rows={2} className="campo" /></label>
-        <label className="flex items-start gap-2 text-sm"><input type="checkbox" name="cierreConforme" value="si" required className="mt-1 size-5 accent-marino" />Como responsable de Gestión Documental, apruebo el desarrollo de la capacitación, la devolución de recursos, los entregables y los viáticos de las fases 4 y 5.</label>
+        <label className="flex items-start gap-2 text-sm"><input type="checkbox" name="cierreConforme" value="si" required className="mt-1 size-5 accent-marino" />Como responsable de Gestión Documental, apruebo el desarrollo de la capacitación, la devolución de recursos, las notas cuando corresponden, los entregables y los viáticos de las fases 4 y 5.</label>
       </>;
     case "alistar_material": {
       const pend = e.items.filter((i) => !i.listo).length;
@@ -787,14 +792,23 @@ function Campos({ clave, e }: { clave: string; e: Exp }) {
         </div>
       );
     }
+    case "registrar_notas":
+      return <div className="space-y-3">
+        <ResumenRegistroNotas resumen={resumenRegistroNotas(e.resumenAsistencia, e.ctx.examen)} />
+        {resumenRegistroNotas(e.resumenAsistencia, e.ctx.examen).diferencia > 0 && <label className="etiqueta">Motivo de la diferencia (opcional)<textarea name="motivoDiferencia" rows={3} maxLength={2000} className="campo mt-1" placeholder="Si lo deseas, explica por qué faltan notas de algunos asistentes." /></label>}
+        <p className="text-sm text-texto-2">En esta sesión corresponde examen {EXAMEN[e.ctx.examen ?? "entrada"]}. Registra las notas de los beneficiarios presentes o que llegaron tarde, en la escala de 0 a 20.</p>
+        <Link href={`/operativo/capacitacion/${e.p.id}#registro-asistencia`} className="btn-oscuro inline-flex px-5 py-3">Registrar notas de esta sesión →</Link>
+        <p className="text-xs text-texto-2">El enlace abre la lista de {e.p.sede.nombre}, del {fechaCorta(e.p.fecha)}. Si está cerrada, solicita su reapertura al administrador o a Gestión Documental.</p>
+        <label className="flex items-start gap-2 text-sm"><input type="checkbox" name="notasConfirmadas" value="si" required className="mt-1 size-5 accent-marino" />Confirmo que revisé las notas registradas y las diferencias que se muestran para esta sesión.</label>
+      </div>;
     case "registrar_asistencia": {
       const declarados = (pasos.llenar_ficha2 as Ficha2 | undefined)?.asistentes;
       return (
         <>
           <p className="text-[13px]">
             <Link href={`/operativo/capacitacion/${e.p.id}`} className="btn-oscuro inline-flex px-5 py-3">Tomar asistencia de beneficiarios →</Link>{" "}
-            <span className="text-texto-2">({e.inscritos} programados · {e.presentes} presentes registrados{declarados != null ? ` · ${declarados} declarados en la 2da sección` : ""})</span>
           </p>
+          <dl className="grid grid-cols-2 gap-3 rounded-xl border border-borde bg-[#f5f8fc] p-4 sm:grid-cols-3">{[["Beneficiarios programados", e.resumenAsistencia.programados], ["Presentes", e.resumenAsistencia.presentes], ["Tardanzas", e.resumenAsistencia.tardanzas], ["Ausentes", e.resumenAsistencia.ausentes], ["Justificados", e.resumenAsistencia.justificados], ["Pendientes de registrar", e.resumenAsistencia.pendientes]].map(([titulo, valor]) => <div key={titulo}><dt className="text-xs text-texto-2">{titulo}</dt><dd className="mt-1 text-xl font-semibold text-marino">{valor}</dd></div>)}</dl>
           {declarados != null && e.presentes > 0 && declarados !== e.presentes && (
             <p className="rounded-md bg-[#fef3c7] px-3 py-2 text-[13px] text-[#92400e]">
               No coincide: la 2da sección dice {declarados} asistentes y la lista tiene {e.presentes} presentes.
@@ -1152,6 +1166,7 @@ const BOTON: Record<string, string> = {
   reportar_incidencias: "Reportar",
   llenar_ficha2: "Guardar 2da sección",
   registrar_asistencia: "Asistencia registrada",
+  registrar_notas: "Confirmar registro de notas",
   rendir_viaticos: "Subir viáticos",
   recibir_rendicion: "Rendición recibida",
   escanear_subir: "Subir al sistema",
@@ -1247,7 +1262,7 @@ function Tarjeta({ s, n, e, est, u, href }: { s: EstadoItem; n: number; e: Exp; 
           </FormPaso>
         )}
         {s.estado === "bloqueado" && faltan.length > 0 && <p className="text-xs text-texto-2">Espera: {faltan.join(" · ")}</p>}
-        {s.estado === "no_aplica" && <p className="text-xs text-texto-2">{s.clave === "escanear_subir" ? "No aplica: la capacitación no se ejecutó." : "No aplica en esta sesión."}</p>}
+        {s.estado === "no_aplica" && <p className="text-xs text-texto-2">{s.clave === "registrar_notas" ? e.ctx.pasos.datos_capacitacion?.realizada === false ? "No aplica: la capacitación no se ejecutó." : "No corresponde examen en esta sesión." : s.clave === "escanear_subir" ? "No aplica: la capacitación no se ejecutó." : "No aplica en esta sesión."}</p>}
       </div>
     </li>
   );

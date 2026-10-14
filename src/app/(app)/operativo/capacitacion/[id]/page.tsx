@@ -11,6 +11,7 @@ import { ChipEstado, Encabezado, nombreCompleto } from "@/components/ui";
 import ListaAsistencia, { type FilaAsistencia } from "./ListaAsistencia";
 import { reabrirLista } from "../actions";
 import { examenDe, examenes } from "@/lib/preparacion";
+import { puedeReabrirAsistencia } from "@/lib/permisos";
 
 export const metadata = { title: "Lista de asistencia" };
 
@@ -18,7 +19,8 @@ export default async function PaginaAsistencia({ params }: PageProps<"/operativo
   await connection();
   const id = Number((await params).id);
   const p = await db.query.programaciones.findFirst({ where: eq(programaciones.id, id), with: conRuta });
-  if (!p || !puedeVerSesion(await exigirUsuario(), p)) notFound();
+  const u = await exigirUsuario();
+  if (!p || !puedeVerSesion(u, p)) notFound();
 
   const [ins, asis, ex, pendientes] = await Promise.all([
     db.query.inscripciones.findMany({ where: eq(inscripciones.programacionId, id), with: { participante: true } }),
@@ -67,7 +69,7 @@ export default async function PaginaAsistencia({ params }: PageProps<"/operativo
           <>
             <Link href={`/operativo/capacitacion/${p.id}/imprimir`} className="btn-secundario">🖨 Imprimir (formato oficial)</Link>
             <a href={`/operativo/capacitacion/${p.id}/excel`} className="btn-secundario">⬇ Excel</a>
-            {p.listaCerrada && (
+            {p.listaCerrada && puedeReabrirAsistencia(u.roles) && (
               <form action={reabrirLista}>
                 <input type="hidden" name="programacionId" value={p.id} />
                 <button className="btn-secundario">Reabrir lista</button>
@@ -94,7 +96,7 @@ export default async function PaginaAsistencia({ params }: PageProps<"/operativo
 
       <div className="flex items-center gap-3 text-sm">
         <ChipEstado estado={p.estado} sinCapacitador={!p.capacitador} />
-        {p.listaCerrada && <span className="text-texto-2">Esta lista está cerrada. Para modificarla, usa «Reabrir lista».</span>}
+        {p.listaCerrada && <span className="text-texto-2">{puedeReabrirAsistencia(u.roles) ? "Esta lista está cerrada. Para modificarla, usa «Reabrir lista»." : "Esta lista está cerrada. Solo el administrador o Gestión Documental pueden reabrirla para permitir cambios."}</span>}
       </div>
 
       <ListaAsistencia key={p.id} programacionId={p.id} filas={filas} pendientes={pendientes} cerrada={p.listaCerrada} examen={examen} />

@@ -16,6 +16,15 @@ const duplicado = (e: unknown) => (e as { cause?: { code?: string } })?.cause?.c
 
 /* ── Logística: materiales e insumos ─────────────────────── */
 
+export async function crearRefrigerioInicial(prev: Res, f: FormData): Promise<Res> {
+  if (!["Gaseosas", "Galletas"].includes(String(f.get("nombre")))) return { error: "Selecciona gaseosas o galletas." };
+  const stock = Number(f.get("stock"));
+  if (!String(f.get("stock") ?? "").trim() || !Number.isSafeInteger(stock) || stock < 0 || stock > 2147483647) return { error: "Indica el stock inicial en unidades enteras desde cero." };
+  f.set("categoria", "refrigerio");
+  f.set("unidad", "unidades");
+  return crearInsumo(prev, f);
+}
+
 export async function crearInsumo(_p: Res, f: FormData): Promise<Res> {
   const perm = await permitir("logistica");
   if (!perm.u) return { error: perm.error };

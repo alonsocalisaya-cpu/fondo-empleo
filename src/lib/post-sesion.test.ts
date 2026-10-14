@@ -53,3 +53,19 @@ test("el retorno no puede superar los recursos llevados ni admitir valores negat
   f.set("retorno-recurso-0", "2");
   assert.equal(leerRetornos(f, grupos).retornos?.[0].retorno, 2);
 });
+
+test("las notas van después de la devolución y solo aplican a sesiones ejecutadas con examen", () => {
+  const ctx: ContextoFlujo = { pasos: {}, examen: "ambos", fueraDeArequipa: false };
+  assert.equal(estadoPaso("registrar_notas", ctx), "bloqueado");
+  ctx.pasos.recursos_post = { en: "2026-10-14" };
+  assert.equal(estadoPaso("registrar_notas", ctx), "disponible");
+  assert.equal(estadoPaso("escanear_subir", ctx), "bloqueado");
+  ctx.pasos.registrar_notas = { en: "2026-10-14" };
+  assert.equal(estadoPaso("escanear_subir", ctx), "disponible");
+  ctx.examen = null;
+  assert.equal(estadoPaso("registrar_notas", ctx), "no_aplica");
+  assert.equal(estadoPaso("escanear_subir", ctx), "disponible");
+  ctx.examen = "entrada";
+  ctx.pasos.datos_capacitacion = { en: "2026-10-14", realizada: false };
+  assert.equal(estadoPaso("registrar_notas", ctx), "no_aplica");
+});

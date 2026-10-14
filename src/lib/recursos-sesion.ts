@@ -1,4 +1,4 @@
-export type RecursoSesion = { descripcion: string; cantidad: number; unidad: string; detalle?: string };
+export type RecursoSesion = { descripcion: string; cantidad: number; unidad: string; detalle?: string; insumoId?: number };
 
 export function leerEquipos(f: FormData): { equipos: RecursoSesion[]; error?: string } {
   const nombres = f.getAll("equipoDescripcion");
@@ -29,6 +29,7 @@ export function leerRecursos(f: FormData): { recursos: RecursoSesion[]; error?: 
   const nombres = f.getAll("recursoDescripcion");
   const cantidades = f.getAll("recursoCantidad");
   const detalles = f.getAll("recursoDetalle");
+  const inventario = f.getAll("recursoInsumoId");
   if (!nombres.length || nombres.length > 100 || nombres.length !== cantidades.length) {
     return { recursos: [], error: "Completa la solicitud con gaseosas y galletas, indicando sus unidades." };
   }
@@ -41,7 +42,8 @@ export function leerRecursos(f: FormData): { recursos: RecursoSesion[]; error?: 
     if (!descripcion || descripcion.length > 200 || !Number.isSafeInteger(cantidad) || cantidad < 1) {
       return { recursos: [], error: "Completa cada recurso con su nombre y un número entero de unidades mayor que cero." };
     }
-    recursos.push({ descripcion, cantidad, unidad: "unidad", ...(detalle ? { detalle } : {}) });
+    const insumoId = Number(inventario[i]);
+    recursos.push({ descripcion, cantidad, unidad: "unidad", ...(detalle ? { detalle } : {}), ...(Number.isSafeInteger(insumoId) && insumoId > 0 ? { insumoId } : {}) });
   }
   if (!["gaseosas", "galletas"].every((nombre) => recursos.some((r) => r.descripcion.toLowerCase() === nombre))) {
     return { recursos: [], error: "La solicitud debe incluir gaseosas y galletas." };

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { connection } from "next/server";
 import { and, eq, gte, ne } from "drizzle-orm";
 import { db } from "@/db";
-import { componentes, programaciones } from "@/db/schema";
+import { componentes, programaciones, sedes } from "@/db/schema";
 import { listarProgramaciones } from "@/lib/consultas";
 import { contextosDe, examenes } from "@/lib/preparacion";
 import { estadoPaso } from "@/lib/flujo-pre";
@@ -13,6 +13,7 @@ import FormSubirDocumento from "./FormSubirDocumento";
 import EntregablesSesiones from "./EntregablesSesiones";
 import { TIPO_DOC } from "@/lib/documentos";
 import { Desplegable, ArchivosRepositorio } from "./PresentacionRepositorio";
+import { enlaceEntregables, type FiltrosEntregables } from "@/lib/navegacion-entregables";
 
 export const metadata = { title: "Repositorio documental" };
 
@@ -25,12 +26,14 @@ export default async function GestionDocumental({ searchParams }: PageProps<"/so
   const sesionSolicitada = Number(sp.sesion) || 0;
   const parte = sp.parte === "sesiones" ? "sesiones" : sp.parte === "fichas" ? "fichas" : "academico";
   const detalleEntregables = parte === "sesiones" && Number(sp.programacion) > 0;
+  const vistaEntregables = sp.vista === "sede" ? "sede" : "componentes";
+  const esFecha = (valor: unknown): valor is string => typeof valor === "string" && /^\d{4}-\d{2}-\d{2}$/.test(valor);
 
   const estructuras = await db.query.estructuras.findMany({ orderBy: (t, { asc }) => [asc(t.orden), asc(t.id)] });
   const proyectoSolicitado = Number(sp.proyecto) || Number(sp.estructura) || estructuras[0]?.id;
   const proyecto = estructuras.find((e) => e.id === proyectoSolicitado) ?? estructuras[0];
 
-  const [arbol, docs, proximas] = await Promise.all([
+  const [arbol, docs, proximas, listaSedes] = await Promise.all([
     db.query.componentes.findMany({
       where: proyecto ? eq(componentes.estructuraId, proyecto.id) : undefined,
       orderBy: (t, { asc }) => [asc(t.orden)],
@@ -43,12 +46,19 @@ export default async function GestionDocumental({ searchParams }: PageProps<"/so
     }),
     db.query.documentos.findMany({ with: { sesion: true, programacion: { with: { sede: true } } }, orderBy: (t) => [t.sesionId, t.tipo, t.nombre] }),
     listarProgramaciones(and(gte(programaciones.fecha, sumarDias(hoyISO(), -7)), ne(programaciones.estado, "cancelada"))),
+    db.query.sedes.findMany({ where: proyecto ? eq(sedes.estructuraId, proyecto.id) : undefined, orderBy: (t, { asc }) => asc(t.nombre) }),
   ]);
 
   const sesiones = arbol.flatMap((c) =>
     c.actividades.flatMap((a) => a.modulos.flatMap((m) => m.sesiones.map((s) => ({ ...s, grupo: `${c.nombre} › ${a.nombre} › ${m.nombre}` })))),
   );
   const sesionSel = sesiones.some((s) => s.id === sesionSolicitada) ? sesionSolicitada : 0;
+  const filtrosEntregables: FiltrosEntregables = {
+    proyecto: proyecto?.id, vista: vistaEntregables,
+    sede: Math.max(0, Number(sp.sede) || 0),
+    desde: esFecha(sp.desde) ? sp.desde : "", hasta: esFecha(sp.hasta) ? sp.hasta : "",
+    sesion: detalleEntregables && sp.sesionFiltro !== undefined ? Math.max(0, Number(sp.sesionFiltro) || 0) : sesionSel,
+  };
   const idsSesiones = new Set(sesiones.map((s) => s.id));
   const examenPorSesion = await examenes(sesiones.map((s) => s.id));
   const proximasProyecto = proyecto
@@ -153,7 +163,10 @@ export default async function GestionDocumental({ searchParams }: PageProps<"/so
           : "Entregables organizados por sesión, fecha y sede: diapositivas, talleres o prácticas, asistencia, exámenes cuando correspondan, fotos, videos y viáticos."}
       </p>}
 
-      {!detalleEntregables && <form key={`${proyecto?.id}:${parte}:${sesionSel}`} className="flex items-end gap-3">
+      {parte === "sesiones" && !detalleEntregables && <nav aria-label="Buscar entregables por" className="flex flex-wrap gap-2">
+        {[{ vista: "componentes" as const, nombre: "Por componente y sesión" }, { vista: "sede" as const, nombre: "Por sede y fechas" }].map((v) => <Link key={v.vista} href={enlaceEntregables({ ...filtrosEntregables, vista: v.vista, sede: 0, desde: "", hasta: "" })} aria-current={vistaEntregables === v.vista ? "page" : undefined} className={`rounded-lg border px-4 py-2 text-sm font-semibold ${vistaEntregables === v.vista ? "border-marino bg-marino text-white" : "border-borde bg-white text-marino hover:bg-[#eef3f8]"}`}>{v.nombre}</Link>)}
+      </nav>}
+      {!detalleEntregables && (parte === "academico" || vistaEntregables === "componentes") && <form key={`${proyecto?.id}:${parte}:${sesionSel}`} className="flex items-end gap-3">
         <input type="hidden" name="parte" value={parte} />
         {proyecto && <input type="hidden" name="proyecto" value={proyecto.id} />}
         <div className="w-96">
@@ -220,7 +233,7 @@ export default async function GestionDocumental({ searchParams }: PageProps<"/so
           ))}
         </div>
       ) : (
-        <EntregablesSesiones arbol={arbol} docs={docs} sesionSel={sesionSel} examenPorSesion={examenPorSesion} proyectoId={proyecto?.id} programacionSel={Number(sp.programacion) || 0} />
+        <EntregablesSesiones arbol={arbol} docs={docs} sesionSel={sesionSel} examenPorSesion={examenPorSesion} filtros={filtrosEntregables} sedes={listaSedes.map((s) => ({ id: s.id, nombre: s.nombre }))} programacionSel={Number(sp.programacion) || 0} />
       )}
       </>}
     </>

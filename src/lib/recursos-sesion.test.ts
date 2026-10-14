@@ -92,7 +92,7 @@ test("el flujo no incluye actividades del capacitador ni depende de ellas", () =
 });
 
 test("la post-capacitación contiene datos, recursos, entregables y viáticos", () => {
-  assert.deepEqual(PASOS.filter((p) => p.etapa === "post").map((p) => p.clave), ["datos_capacitacion", "registrar_asistencia", "recursos_post", "escanear_subir", "rendir_viaticos", "aprobar_cierre"]);
+  assert.deepEqual(PASOS.filter((p) => p.etapa === "post").map((p) => p.clave), ["datos_capacitacion", "registrar_asistencia", "recursos_post", "registrar_notas", "escanear_subir", "rendir_viaticos", "aprobar_cierre"]);
   const ctx: ContextoFlujo = { pasos: { revisar_recursos: { en: "2026-10-12" } }, examen: null, fueraDeArequipa: false };
   assert.equal(estadoPaso("datos_capacitacion", ctx), "disponible");
   assert.equal(estadoPaso("recursos_post", ctx), "bloqueado");

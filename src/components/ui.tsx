@@ -114,7 +114,6 @@ export const TABS_CRONOGRAMA = [
 export const TABS_PRE = [
   { href: "/operativo/capacitaciones", label: "Sesiones" },
   { href: "/operativo/capacitaciones/participantes", label: "Beneficiarios" },
-  { href: "/operativo/capacitaciones/participantes/registro", label: "Registro de asistencia y notas" },
   { href: "/operativo/capacitacion", label: "Listas de asistencia" },
   { href: "/operativo/post-capacitacion", label: "Resultados de asistencia" },
 ];

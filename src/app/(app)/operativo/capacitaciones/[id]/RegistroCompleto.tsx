@@ -1,6 +1,10 @@
 import type { PasoRegistro } from "@/db/schema";
 import { recursosDe } from "@/lib/recursos-sesion";
 import type { DatosLiquidacion } from "@/lib/liquidacion";
+import { resumenAsistenciaDe } from "@/lib/resumen-asistencia";
+import { resumenRegistroNotas } from "@/lib/seguimiento-examenes";
+import ResumenRegistroNotas from "./ResumenRegistroNotas";
+import ResumenRegistroAsistencia from "./ResumenRegistroAsistencia";
 
 type Archivo = { id: number; nombre: string; href: string; seccion: string };
 
@@ -49,7 +53,7 @@ export function ResumenCierre({ pasos, archivos, programacionId, liquidacion }: 
       <Campo titulo="Entregables" valor={datos?.realizada === false ? "No corresponde: capacitación no ejecutada" : pasos.escanear_subir ? `${pasos.escanear_subir.archivos} archivos adjuntos · talleres o prácticas opcionales` : "Pendiente"} />
       <Campo titulo="Total de viáticos" valor={viaticos ? `S/ ${Number(viaticos.gastado ?? 0).toFixed(2)}` : "Pendiente"} />
     </dl>
-    {[["datos_capacitacion", "Desarrollo"], ["registrar_asistencia", "Asistencia de beneficiarios"], ["recursos_post", "Devolución de recursos"], ["escanear_subir", "Entregables"], ["rendir_viaticos", "Viáticos"]].map(([clave, titulo]) => pasos[clave] && <details key={clave} className="rounded-lg border border-borde bg-white"><summary className="cursor-pointer px-3 py-2.5 text-sm font-semibold text-marino">{titulo} · Ver detalle</summary><div className="p-3 pt-0"><RegistroCompleto clave={clave} registro={pasos[clave]} archivos={archivos} programacionId={programacionId} liquidacion={liquidacion} /></div></details>)}
+    {[["datos_capacitacion", "Desarrollo"], ["registrar_asistencia", "Asistencia de beneficiarios"], ["recursos_post", "Devolución de recursos"], ["registrar_notas", "Registro de notas"], ["escanear_subir", "Entregables"], ["rendir_viaticos", "Viáticos"]].map(([clave, titulo]) => pasos[clave] && <details key={clave} className="rounded-lg border border-borde bg-white"><summary className="cursor-pointer px-3 py-2.5 text-sm font-semibold text-marino">{titulo} · Ver detalle</summary><div className="p-3 pt-0"><RegistroCompleto clave={clave} registro={pasos[clave]} archivos={archivos} programacionId={programacionId} liquidacion={liquidacion} /></div></details>)}
   </section>;
 }
 
@@ -64,7 +68,9 @@ function Recursos({ titulo, datos }: { titulo: string; datos: unknown }) {
   </section>;
 }
 
-export default function RegistroCompleto({ clave, registro: r, archivos, liquidacion, programacionId, programaViajeDisponible = false }: { clave: string; registro: PasoRegistro; archivos: Archivo[]; liquidacion?: DatosLiquidacion; programacionId: number; programaViajeDisponible?: boolean }) {
+export default async function RegistroCompleto({ clave, registro: r, archivos, liquidacion, programacionId, programaViajeDisponible = false }: { clave: string; registro: PasoRegistro; archivos: Archivo[]; liquidacion?: DatosLiquidacion; programacionId: number; programaViajeDisponible?: boolean }) {
+  const notas = clave === "registrar_notas" ? resumenRegistroNotas(await resumenAsistenciaDe(programacionId), r.tipo === "entrada" || r.tipo === "salida" || r.tipo === "ambos" ? r.tipo : null) : null;
+  const asistencia = clave === "registrar_asistencia" ? await resumenAsistenciaDe(programacionId) : null;
   if (r.liquidacion && typeof r.liquidacion === "object" && Array.isArray((r.liquidacion as DatosLiquidacion).lineas)) liquidacion = r.liquidacion as DatosLiquidacion;
   const campos: { titulo: string; valor: unknown }[] = [];
   const esRecurso = ["solicitar_recursos", "revisar_recursos", "aprobar_preparacion"].includes(clave);
@@ -84,7 +90,6 @@ export default function RegistroCompleto({ clave, registro: r, archivos, liquida
     }
     campos.push({ titulo: "Tipos de incidencia", valor: Array.isArray(r.tiposIncidencia) ? r.tiposIncidencia.join(", ") || "Sin tipos de incidencia" : null }, { titulo: "Incidencias / motivo de no ejecución", valor: r.incidencias || "Sin incidencias registradas" });
   }
-  if (clave === "registrar_asistencia") campos.push({ titulo: "Beneficiarios con asistencia registrada", valor: r.registros }, { titulo: "Presentes / tardanzas", valor: r.presentes });
   if (clave === "revisar_recursos" || clave === "aprobar_preparacion") campos.push({ titulo: "Coordinación con el asistente", valor: r.coordinadoAsistente == null ? null : r.coordinadoAsistente ? "Confirmada" : "No confirmada" });
   if (esViaje) {
     const corresponde = clave === "programa_viaje" ? r.corresponde : r.viajeCorresponde;
@@ -92,7 +97,8 @@ export default function RegistroCompleto({ clave, registro: r, archivos, liquida
     if (clave === "programa_viaje" && r.programaGenerado) campos.push({ titulo: "Consultor", valor: r.consultor }, { titulo: "Tipo de informe", valor: r.tipoInforme }, { titulo: "Fecha de programa", valor: r.fechaPrograma }, { titulo: "Empresa destino", valor: r.empresaDestino }, { titulo: "Proyecto", valor: r.proyecto });
   }
   if (r.obs) campos.push({ titulo: "Observaciones / comentario", valor: r.obs });
-  const tieneLista = clave === "imprimir_ficha" || clave === "registrar_asistencia";
+  if (clave === "registrar_notas" && r.motivoDiferencia) campos.push({ titulo: "Motivo de la diferencia", valor: r.motivoDiferencia });
+  const tieneLista = clave === "imprimir_ficha";
   const documentos = archivos.filter((a) => {
     if (tieneLista && a.seccion === "lista_asistencia") return true;
     if (clave === "imprimir_ficha" && a.seccion === "examen") return true;
@@ -102,6 +108,8 @@ export default function RegistroCompleto({ clave, registro: r, archivos, liquida
   });
   return <div className="w-full space-y-4 rounded-lg border border-borde bg-white p-4" aria-label="Información registrada en solo lectura">
     <p className="text-xs font-semibold uppercase tracking-wide text-texto-2">Registro completo · Solo lectura</p>
+    {notas && <ResumenRegistroNotas resumen={notas} />}
+    {asistencia && <ResumenRegistroAsistencia resumen={asistencia} />}
     {clave === "aprobar_cierre" && !!r.resumenCierre && <ResumenCierre pasos={r.resumenCierre as Record<string, PasoRegistro>} archivos={archivos} programacionId={programacionId} liquidacion={liquidacion} />}
     {campos.length > 0 && <dl className="grid gap-4 sm:grid-cols-2">{campos.map((c) => <Campo key={c.titulo} {...c} />)}</dl>}
     {((clave === "programa_viaje" && r.programaGenerado === true) || (clave === "aprobar_preparacion" && programaViajeDisponible)) && <a href={`/api/programaciones/${programacionId}/programa-viaje`} className="btn-oscuro inline-flex px-5 py-3">⬇ Descargar programa de viaje completado (Word)</a>}

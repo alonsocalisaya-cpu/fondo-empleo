@@ -63,7 +63,7 @@ export const PERMISOS_BASE: Record<RolUsuario, Partial<Record<Modulo, Nivel>>> =
   },
   jefe_comercial: { inicio: V, calendario: V, cronograma: V, indicadores: V, capacitaciones: E, logistica: V },
   asistente: {
-    inicio: V, calendario: V, cronograma: V, capacitaciones: E, beneficiarios: E, logistica: E, mantenimiento: E, documental: V,
+    inicio: V, calendario: V, cronograma: V, capacitaciones: E, beneficiarios: E, logistica: V, mantenimiento: E, documental: V,
   },
   capacitador: { calendario: V, capacitaciones: E },
   gestion_documental: {
@@ -148,6 +148,11 @@ export function inicioDe(r: Roles) {
 /** ¿Este usuario puede registrar una actividad del flujo que corresponde a estos roles? */
 export function puedeRegistrarPaso(r: Roles, rolesPaso: RolFlujo[]) {
   return aLista(r).some((x) => x === "admin" || (rolesPaso as string[]).includes(x));
+}
+
+/** Solo estos responsables pueden reabrir una lista de asistencia cerrada. */
+export function puedeReabrirAsistencia(r: Roles) {
+  return aLista(r).some((rol) => rol === "admin" || rol === "gestion_documental");
 }
 
 /** Quiénes arman la 1ra sección de la ficha (ítems, refrigerio y equipos). */

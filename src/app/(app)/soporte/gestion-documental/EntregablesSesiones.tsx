@@ -9,6 +9,10 @@ import SiPuede from "@/components/SiPuede";
 import { Vacio } from "@/components/ui";
 import FormSubirDocumento from "./FormSubirDocumento";
 import { Desplegable, ArchivosRepositorio } from "./PresentacionRepositorio";
+import { and, eq, gte, lte } from "drizzle-orm";
+import { programaciones } from "@/db/schema";
+import { enlaceEntregables, type FiltrosEntregables } from "@/lib/navegacion-entregables";
+import EntregablesPorSede from "./EntregablesPorSede";
 
 type Nodo = { id: number; codigo: string; nombre: string };
 type Arbol = (Nodo & { actividades: (Nodo & { modulos: (Nodo & { sesiones: Nodo[] })[] })[] })[];
@@ -19,11 +23,17 @@ function Archivos({ documentos: docs }: { documentos: Documento[] }) {
   return <ArchivosRepositorio docs={docs} />;
 }
 
-export default async function EntregablesSesiones({ arbol, docs, sesionSel, examenPorSesion, proyectoId, programacionSel }: {
-  arbol: Arbol; docs: Documento[]; sesionSel: number; examenPorSesion: Map<number, Examen>; proyectoId?: number; programacionSel: number;
+export default async function EntregablesSesiones({ arbol, docs, sesionSel, examenPorSesion, programacionSel, filtros, sedes }: {
+  arbol: Arbol; docs: Documento[]; sesionSel: number; examenPorSesion: Map<number, Examen>; programacionSel: number; filtros: FiltrosEntregables; sedes: { id: number; nombre: string }[];
 }) {
   const detalle = programacionSel > 0;
-  const programadas = await listarProgramaciones(undefined);
+  const sesionesProyecto = arbol.flatMap((c) => c.actividades.flatMap((a) => a.modulos.flatMap((m) => m.sesiones)));
+  const idsProyecto = new Set(sesionesProyecto.map((s) => s.id));
+  const programadas = (await listarProgramaciones(and(
+    filtros.sede ? eq(programaciones.sedeId, filtros.sede) : undefined,
+    filtros.desde ? gte(programaciones.fecha, filtros.desde) : undefined,
+    filtros.hasta ? lte(programaciones.fecha, filtros.hasta) : undefined,
+  ))).filter((p) => idsProyecto.has(p.sesionId) || p.combinadas.some((c) => idsProyecto.has(c.sesionId)));
   const porSesion = new Map<number, typeof programadas>();
   for (const p of programadas) {
     for (const id of new Set([p.sesionId, ...p.combinadas.map((c) => c.sesionId)])) {
@@ -32,6 +42,7 @@ export default async function EntregablesSesiones({ arbol, docs, sesionSel, exam
   }
   const porProgramacion = new Map<number, Documento[]>();
   for (const d of docs) if (d.programacionId) porProgramacion.set(d.programacionId, [...(porProgramacion.get(d.programacionId) ?? []), d]);
+  if (filtros.vista === "sede" && !detalle) return <EntregablesPorSede filtros={filtros} programadas={programadas} documentosPorProgramacion={porProgramacion} sedes={sedes} sesiones={sesionesProyecto} />;
   const visibles = arbol.map((c) => ({ ...c, actividades: c.actividades.map((a) => ({ ...a,
     modulos: a.modulos.map((m) => ({ ...m, sesiones: m.sesiones.filter((s) =>
       (!sesionSel || s.id === sesionSel) &&
@@ -40,10 +51,10 @@ export default async function EntregablesSesiones({ arbol, docs, sesionSel, exam
   })).filter((a) => a.modulos.length) })).filter((c) => c.actividades.length);
 
   return <div className="space-y-4">
-    {(sesionSel || programacionSel) > 0 && <Link
-      href={`/soporte/gestion-documental?parte=sesiones${proyectoId ? `&proyecto=${proyectoId}` : ""}`}
+    {detalle && <Link
+      href={`${enlaceEntregables(filtros)}${programacionSel ? filtros.vista === "sede" ? `#gd-programacion-${programacionSel}` : `#gd-programacion-${programacionSel}-sesion-${sesionSel}` : ""}`}
       className="btn-secundario inline-flex text-sm"
-    >Volver a todas las sesiones</Link>}
+    >← Volver a la selección anterior</Link>}
     {!visibles.length && <Vacio>{sesionSel || programacionSel ? "No se encontró la sesión solicitada en este proyecto." : "Este proyecto todavía no tiene sesiones."}</Vacio>}
     {visibles.map((c) => <Desplegable key={c.id} titulo={!detalle ? `Componente ${c.codigo} · ${c.nombre}` : undefined}>
       <div className={detalle ? "space-y-4" : "divide-y divide-borde px-4"}>
@@ -65,14 +76,14 @@ export default async function EntregablesSesiones({ arbol, docs, sesionSel, exam
                     const archivos = porProgramacion.get(p.id) ?? [];
                     const examen = examenDe(p, examenPorSesion);
                     const nFotos = fotosEntregadas(archivos);
-                    return <div key={p.id} className="rounded-md border border-borde">
+                    return <div key={p.id} id={`gd-programacion-${p.id}-sesion-${s.id}`} className="scroll-mt-4 rounded-md border border-borde">
                       <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-sm text-marino">
                         <div>
                         <strong>{fechaCorta(p.fecha)}</strong> · {p.sede.nombre} · {p.horaInicio.slice(0, 5)}–{p.horaFin.slice(0, 5)}
                         <span className="mt-1 block text-xs text-texto-2">{archivos.length} archivo(s) · Fotos: {nFotos}/{MINIMO_FOTOS}{p.combinadas.length ? " · Sesión combinada" : ""}{p.estado === "cancelada" ? " · Cancelada" : ""}</span>
                         </div>
                         {!detalle && <Link
-                          href={`/soporte/gestion-documental?parte=sesiones${proyectoId ? `&proyecto=${proyectoId}` : ""}&sesion=${s.id}${programacionSel === p.id ? "" : `&programacion=${p.id}`}`}
+                          href={enlaceEntregables(filtros, { sesion: s.id, programacion: p.id })}
                           className="btn-secundario text-xs"
                           aria-expanded={programacionSel === p.id}
                         >Ver entregables</Link>}
@@ -87,7 +98,7 @@ export default async function EntregablesSesiones({ arbol, docs, sesionSel, exam
                               ...(examen === "entrada" || examen === "ambos" ? [{ valor: "examen_entrada", texto: "Examen de entrada" }] : []),
                               ...(examen === "salida" || examen === "ambos" ? [{ valor: "examen_salida", texto: "Examen de salida" }] : []),
                             ] : [{ valor: e.tipo, texto: e.titulo }];
-                          return <Desplegable key={e.seccion} titulo={e.titulo} cantidad={`${documentosCategoria.length} archivo(s)${e.seccion === "talleres" ? " · Opcional" : ""}`}>
+                          return <Desplegable key={e.seccion} titulo={e.titulo} persistencia={`entregable-${p.id}-${s.id}-${e.seccion}`} cantidad={`${documentosCategoria.length} archivo(s)${e.seccion === "talleres" ? " · Opcional" : ""}`}>
                             <div className="bg-[#f3f6fa] px-4 py-3 text-sm text-marino">
                               <span className="mt-1 block text-xs text-texto-2">{e.seccion === "fotos" ? `${nFotos}/${MINIMO_FOTOS} fotos · ${nFotos >= MINIMO_FOTOS ? "Mínimo cumplido" : `Faltan ${MINIMO_FOTOS - nFotos}`}` : `${documentosCategoria.length} archivo(s)`}</span>
                             </div>

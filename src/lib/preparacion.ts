@@ -19,6 +19,7 @@ import {
 import { conRuta } from "./consultas";
 import { equivalencias } from "./disponibilidad";
 import { liquidacionDe } from "./liquidacion-db";
+import { resumenAsistenciaDe } from "./resumen-asistencia";
 import { avisosDe, destinatariosDe } from "./avisos";
 import type { ContextoFlujo } from "./flujo-pre";
 
@@ -86,7 +87,7 @@ export async function cargarExpediente(id: number) {
   });
   if (!p) return null;
 
-  const [items, docs, eqs, [{ inscritos }], ex, personal, consultores, inventario, [{ presentes }], todosInsumos] = await Promise.all([
+  const [items, docs, eqs, [{ inscritos }], ex, personal, consultores, inventario, [{ presentes }], todosInsumos, resumenAsistencia] = await Promise.all([
     db.select().from(fichaItems).where(eq(fichaItems.programacionId, id)).orderBy(fichaItems.categoria, fichaItems.id),
     db
       .select()
@@ -108,6 +109,7 @@ export async function cargarExpediente(id: number) {
       .from(asistencias)
       .where(and(eq(asistencias.programacionId, id), inArray(asistencias.estado, ["presente", "tarde"]))),
     db.select().from(insumos),
+    resumenAsistenciaDe(id),
   ]);
 
   // Personas ocupadas: tienen otra sesión el mismo día con horario que se cruza
@@ -181,6 +183,7 @@ export async function cargarExpediente(id: number) {
     consultores,
     inventario,
     presentes,
+    resumenAsistencia,
     stockInsumos: new Map(todosInsumos.map((i) => [i.id, i])),
     operativos,
     equiposOcupados,

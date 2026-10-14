@@ -142,11 +142,19 @@ export const PASOS: DefPaso[] = [
     etapa: "post", fase: 2, carril: "asistente", rol: "asistente", requiere: ["registrar_asistencia"],
   },
   {
+    clave: "registrar_notas",
+    corto: "Notas",
+    titulo: "Registrar notas de exámenes",
+    descripcion: "Abre la lista de esta sesión para registrar las notas de entrada y/o salida que correspondan y confirma el registro.",
+    etapa: "post", fase: 2, carril: "asistente", rol: "asistente", requiere: ["recursos_post"],
+    aplica: (c) => c.examen !== null && c.pasos.datos_capacitacion?.realizada !== false,
+  },
+  {
     clave: "escanear_subir",
     corto: "Entregables",
     titulo: "Entregables",
     descripcion: "Adjunta diapositivas, lista de asistencia, exámenes cuando correspondan, fotos y videos. Los talleres o prácticas son opcionales. Confirma los entregables.",
-    etapa: "post", fase: 2, carril: "asistente", rol: "asistente", requiere: ["recursos_post"],
+    etapa: "post", fase: 2, carril: "asistente", rol: "asistente", requiere: ["registrar_notas"],
     aplica: (c) => c.pasos.datos_capacitacion?.realizada !== false,
   },
   // ── Fase 4 · Jefe de Proyectos ──────────────────────────
@@ -163,7 +171,7 @@ export const PASOS: DefPaso[] = [
     clave: "aprobar_cierre",
     corto: "Aprobación",
     titulo: "Aprobación de la ejecución y los entregables",
-    descripcion: "Gestión Documental revisa el desarrollo, la devolución de recursos, los entregables y los viáticos de las fases 4 y 5, y aprueba el cierre de la sesión.",
+    descripcion: "Gestión Documental revisa el desarrollo, la devolución de recursos, el registro de notas cuando corresponde, los entregables y los viáticos de las fases 4 y 5, y aprueba el cierre de la sesión.",
     etapa: "post", fase: 2, carril: "general", rol: "gestion_documental", requiere: ["rendir_viaticos"],
   },
   // ── Fase 7 · Gestión Documental y Jefe de Proyectos ─────

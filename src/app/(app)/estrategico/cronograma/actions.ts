@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import { validarDisponibilidad } from "@/lib/disponibilidad";
 import { moverStock } from "@/lib/stock";
+import { saldoRecursos } from "@/lib/stock-recursos";
 import { borrarArchivo } from "@/lib/archivos";
 import { inscribirBeneficiarios } from "@/db/inscribir";
 import { documentos, fichaItems, preparaciones, programacionSesiones, programaciones, sedes, sesiones, modulos, actividades, componentes, type EstadoProg } from "@/db/schema";
@@ -94,6 +95,13 @@ export async function eliminarProgramacion(form: FormData) {
   const items = await db.select().from(fichaItems).where(and(eq(fichaItems.programacionId, id), isNotNull(fichaItems.insumoId)));
   const docs = await db.select().from(documentos).where(eq(documentos.programacionId, id));
   await db.transaction(async (tx) => {
+    await tx.select({ id: programaciones.id }).from(programaciones).where(eq(programaciones.id, id)).for("update");
+    const [preparacionActual] = await tx.select().from(preparaciones).where(eq(preparaciones.programacionId, id)).for("update");
+    // Si aún no se confirmó el retorno, libera lo reservado por el flujo nuevo.
+    if (!preparacionActual?.pasos?.recursos_post) {
+      const reservados = saldoRecursos(preparacionActual?.pasos ?? {});
+      await moverStock(tx, "entrada", reservados, id, "Devolución de recursos aprobados · se eliminó la sesión");
+    }
     // Lo que salió del inventario y aún no volvió se devuelve al stock
     if (items.length && !prep?.pasos?.actualizar_inventario) {
       await moverStock(tx, "entrada", items.map((i) => ({ insumoId: i.insumoId!, cantidad: i.cantidad })), id, "Devolución · se eliminó la sesión programada");

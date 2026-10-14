@@ -36,6 +36,7 @@ import { leerRecursos, leerEquipos, recursosDe } from "@/lib/recursos-sesion";
 import { leerDatosPost, leerRetornos } from "@/lib/post-sesion";
 import { seccionDe } from "@/lib/documentos";
 import { leerActividadesViaje } from "@/lib/actividades-viaje";
+import { guardarStockRecursos } from "@/lib/guardar-stock-recursos";
 
 export type Res = { ok?: string; error?: string } | undefined;
 
@@ -80,6 +81,18 @@ async function asociarDocs(ids: number[], programacionId: number, cambios: Parti
 
 /** Error de stock: se lanza dentro de la transacción para deshacerla. */
 class SinStock extends Error {}
+
+async function validarRecursosInventario(recursos: ReturnType<typeof recursosDe>, exigirVinculo = true) {
+  const catalogo = await db.select().from(insumos).where(eq(insumos.activo, true));
+  for (const r of recursos) {
+    const obligatorio = ["gaseosas", "galletas"].includes(r.descripcion.toLowerCase());
+    if (exigirVinculo && obligatorio && !r.insumoId) return `Vincula ${r.descripcion} con un ítem de Logística. El responsable de Logística debe registrar su stock inicial si aún no existe.`;
+    if (!r.insumoId) continue;
+    const item = catalogo.find((i) => i.id === r.insumoId);
+    if (!item || !["unidad", "unidades"].includes(item.unidad.toLowerCase().trim()) || (obligatorio && item.categoria !== "refrigerio")) return `Selecciona un ítem activo registrado en unidades para ${r.descripcion}.`;
+  }
+  return null;
+}
 
 async function motivoDe(id: number) {
   const p = await db.query.programaciones.findFirst({ where: eq(programaciones.id, id), with: { sesion: true, sede: true } });
@@ -255,6 +268,8 @@ export async function registrarPaso(_prev: Res, f: FormData): Promise<Res> {
       const equipos = leerEquipos(f);
       if (equipos.error) return { error: equipos.error };
       reg.recursos = solicitud.recursos;
+      const errorInventario = await validarRecursosInventario(solicitud.recursos, false);
+      if (errorInventario) return { error: errorInventario };
       reg.equipos = equipos.equipos;
       break;
     }
@@ -268,6 +283,9 @@ export async function registrarPaso(_prev: Res, f: FormData): Promise<Res> {
       if (txt(f, "recursosAprobados") !== "si") return { error: "Confirma la aprobación de los requerimientos." };
       const originales = recursosDe(pasos.solicitar_recursos?.recursos);
       reg.recursos = aprobacion.recursos;
+      const errorInventario = await validarRecursosInventario(aprobacion.recursos);
+      if (errorInventario) return { error: errorInventario };
+      reg.stockLineas = aprobacion.recursos.filter((r) => r.insumoId).map((r) => ({ insumoId: r.insumoId!, cantidad: r.cantidad }));
       reg.solicitados = originales;
       reg.equipos = equipos.equipos;
       reg.equiposSolicitados = recursosDe(pasos.solicitar_recursos?.equipos);
@@ -275,7 +293,6 @@ export async function registrarPaso(_prev: Res, f: FormData): Promise<Res> {
       reg.obs = txt(f, "obs") || null;
       reg.coordinadoAsistente = true;
       reg.aprobado = true;
-      if (p.estado !== "cancelada") await db.update(programaciones).set({ estado: "confirmada" }).where(eq(programaciones.id, id));
       break;
     }
 
@@ -403,6 +420,8 @@ export async function registrarPaso(_prev: Res, f: FormData): Promise<Res> {
       const resultado = leerRetornos(f, [{ prefijo: "recurso", items: reg.recursos as ReturnType<typeof recursosDe> }, { prefijo: "equipo", items: reg.equipos as ReturnType<typeof recursosDe> }]);
       if (resultado.error) return { error: resultado.error };
       reg.retornos = resultado.retornos;
+      // No ingresar devoluciones históricas que nunca se descontaron del almacén.
+      if (pasos.revisar_recursos?.stockLineas) reg.stockLineas = (resultado.retornos ?? []).filter((r) => r.grupo === "recurso" && r.insumoId && r.retorno > 0).map((r) => ({ insumoId: r.insumoId!, cantidad: r.retorno }));
       reg.obs = txt(f, "obs") || null;
       reg.revisados = true;
       break;
@@ -529,6 +548,30 @@ export async function registrarPaso(_prev: Res, f: FormData): Promise<Res> {
       break;
     }
 
+    case "registrar_notas": {
+      if (txt(f, "notasConfirmadas") !== "si") return { error: "Confirma el registro de notas de esta sesión." };
+      const presentes = await db.select({ entrada: asistencias.notaEntrada, salida: asistencias.notaSalida }).from(asistencias)
+        .innerJoin(inscripciones, and(eq(inscripciones.programacionId, asistencias.programacionId), eq(inscripciones.participanteId, asistencias.participanteId)))
+        .where(and(eq(asistencias.programacionId, id), inArray(asistencias.estado, ["presente", "tarde"])));
+      const entrada = ctx.examen === "entrada" || ctx.examen === "ambos";
+      const salida = ctx.examen === "salida" || ctx.examen === "ambos";
+      const faltanEntrada = entrada ? presentes.filter((a) => a.entrada == null).length : 0;
+      const faltanSalida = salida ? presentes.filter((a) => a.salida == null).length : 0;
+      const conNotas = presentes.filter((a) => (!entrada || a.entrada != null) && (!salida || a.salida != null)).length;
+      const diferencia = presentes.length - conNotas;
+      const motivo = txt(f, "motivoDiferencia");
+      if (motivo.length > 2000) return { error: "El motivo de la diferencia admite hasta 2000 caracteres." };
+      reg.tipo = ctx.examen;
+      reg.beneficiariosEvaluados = presentes.length;
+      reg.personasConNotas = conNotas;
+      reg.diferencia = diferencia;
+      reg.motivoDiferencia = diferencia ? motivo || null : null;
+      reg.notasEntrada = entrada ? presentes.length - faltanEntrada : null;
+      reg.notasSalida = salida ? presentes.length - faltanSalida : null;
+      reg.confirmadas = true;
+      break;
+    }
+
     case "rendir_viaticos": {
       if (txt(f, "viaticosConfirmados") !== "si") return { error: "Confirma los tipos, importes y total de viáticos." };
       // La liquidación (formato ACIDE-A&A-F-02) se llena en el mismo paso y queda guardada para descargarla
@@ -550,7 +593,7 @@ export async function registrarPaso(_prev: Res, f: FormData): Promise<Res> {
     case "aprobar_cierre": {
       if (txt(f, "cierreConforme") !== "si") return { error: "Confirma la aprobación del desarrollo, devoluciones, entregables y viáticos." };
       reg.conforme = true;
-      reg.resumenCierre = Object.fromEntries(["datos_capacitacion", "registrar_asistencia", "recursos_post", "escanear_subir", "rendir_viaticos"].filter((clave) => pasos[clave]).map((clave) => [clave, pasos[clave]]));
+      reg.resumenCierre = Object.fromEntries(["datos_capacitacion", "registrar_asistencia", "recursos_post", "registrar_notas", "escanear_subir", "rendir_viaticos"].filter((clave) => pasos[clave]).map((clave) => [clave, pasos[clave]]));
       reg.obs = txt(f, "obs") || null;
       await db.update(programaciones).set({ estado: "finalizada" }).where(eq(programaciones.id, id));
       break;
@@ -723,6 +766,12 @@ export async function registrarPaso(_prev: Res, f: FormData): Promise<Res> {
   }
 
   pasos[clave] = reg;
+  if (clave === "revisar_recursos" || clave === "recursos_post") {
+    try { await guardarStockRecursos(id, ctx.pasos, pasos, clave); }
+    catch (e) { return { error: e instanceof Error ? e.message : "No se pudo actualizar el inventario." }; }
+    refrescar(id);
+    return { ok: `✓ ${def.titulo}` };
+  }
   await guardarPasos(id, pasos);
   refrescar(id);
   return { ok: `✓ ${def.titulo}` };
@@ -746,6 +795,11 @@ export async function deshacerPaso(f: FormData) {
   const pasos = { ...x.ctx.pasos };
   const previo = pasos[clave];
   delete pasos[clave];
+  if (clave === "revisar_recursos" || clave === "recursos_post") {
+    await guardarStockRecursos(id, x.ctx.pasos, pasos, clave);
+    refrescar(id);
+    return;
+  }
   if (clave === "revisar_recursos" && x.p.estado !== "cancelada") {
     await db.update(programaciones).set({ estado: "programada" }).where(eq(programaciones.id, id));
   }

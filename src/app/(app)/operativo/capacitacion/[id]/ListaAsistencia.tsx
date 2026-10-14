@@ -23,7 +23,6 @@ type Examen = "entrada" | "salida" | "ambos" | null;
 const OPCIONES: { v: Estado; txt: string; on: string }[] = [
   { v: "presente", txt: "Presente", on: "bg-[#166534] text-white" },
   { v: "tarde", txt: "Tarde", on: "bg-[#b45309] text-white" },
-  { v: "ausente", txt: "Ausente", on: "bg-[#991b1b] text-white" },
   { v: "justificado", txt: "Justif.", on: "bg-[#334155] text-white" },
 ];
 
@@ -94,12 +93,17 @@ export default function ListaAsistencia({
       return;
     }
     const datos = new FormData(e.currentTarget, boton);
+    if (boton?.name === "cerrar" && !await confirmar({
+      titulo: "Guardar y cerrar lista",
+      mensaje: "Una vez cerrada la lista, ya no podrás editar la asistencia de esta sesión.",
+      detalle: "Solo el administrador o el encargado de Gestión Documental podrán reabrirla para permitir cambios. Los beneficiarios sin marcar se guardarán como ausentes.",
+      aceptar: "Sí, guardar y cerrar",
+    })) return;
     startTransition(() => guardar(datos));
   };
 
-  const valores = filas.map((f) => estados[f.participanteId] ?? null);
+  const valores = filas.map((f) => estados[f.participanteId] ?? "ausente");
   const cuenta = (e: Estado) => valores.filter((v) => v === e).length;
-  const marcados = valores.filter(Boolean).length;
   const pct = filas.length ? Math.round(((cuenta("presente") + cuenta("tarde")) * 100) / filas.length) : 0;
   const coincide = (f: FilaAsistencia) =>
     `${f.nombre} ${f.dni}`.toLowerCase().includes(buscar.trim().toLowerCase());
@@ -114,7 +118,7 @@ export default function ListaAsistencia({
           ["Presentes", cuenta("presente"), "text-[#166534]"],
           ["Tardanzas", cuenta("tarde"), "text-[#92400e]"],
           ["Ausentes", cuenta("ausente"), "text-[#991b1b]"],
-          ["Sin marcar", filas.length - marcados, "text-texto-2"],
+          ["Justificados", cuenta("justificado"), "text-texto-2"],
           ["Asistencia", `${pct}%`, "text-marino"],
         ].map(([t, n, c]) => (
           <div key={t as string} className="card flex flex-col gap-0.5 px-4 py-3.5">
@@ -131,7 +135,8 @@ export default function ListaAsistencia({
         </p>
       )}
 
-      <form onSubmit={alGuardar} className="card flex flex-col">
+      <form id="registro-asistencia" onSubmit={alGuardar} className="card flex scroll-mt-20 flex-col">
+        <p className="border-b border-borde bg-[#f5f8fc] px-5 py-3 text-sm text-texto-2">Marca Presente, Tarde o Justificado. Al guardar, quienes no tengan una opción seleccionada se registrarán como ausentes.</p>
         <input type="hidden" name="programacionId" value={programacionId} />
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-borde px-5 py-3.5">
           <div className="flex items-center gap-2.5">
@@ -201,6 +206,7 @@ export default function ListaAsistencia({
                           </label>
                         ))}
                       </fieldset>
+                      {!cerrada && e && e !== "ausente" && <button type="button" onClick={() => setEstados((prev) => ({ ...prev, [f.participanteId]: null }))} className="ml-2 text-xs text-texto-2 underline" aria-label={`Desmarcar a ${f.nombre}`}>Desmarcar</button>}
                     </td>
                     {notas.map((n) => {
                       const asistio = e === "presente" || e === "tarde";

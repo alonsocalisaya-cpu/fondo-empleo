@@ -4,6 +4,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import { autorizarSesion } from "@/lib/auth";
+import { puedeReabrirAsistencia } from "@/lib/permisos";
 import { asistencias, inscripciones, participantes, programaciones, type EstadoAsis } from "@/db/schema";
 
 export type Resultado = { ok?: string; error?: string } | undefined;
@@ -34,7 +35,7 @@ export async function guardarAsistencia(_prev: Resultado, form: FormData): Promi
     .map((pid) => ({
       programacionId,
       participanteId: pid,
-      estado: txt(form, `estado_${pid}`) as EstadoAsis,
+      estado: (txt(form, `estado_${pid}`) || "ausente") as EstadoAsis,
       observacion: txt(form, `obs_${pid}`) || null,
       notaEntrada: nota(form, `ne_${pid}`),
       notaSalida: nota(form, `ns_${pid}`),
@@ -80,7 +81,8 @@ export async function guardarAsistencia(_prev: Resultado, form: FormData): Promi
 
 export async function reabrirLista(form: FormData) {
   const id = Number(form.get("programacionId"));
-  if ((await autorizarSesion(id)).error) return;
+  const permiso = await autorizarSesion(id);
+  if (!permiso.u || !puedeReabrirAsistencia(permiso.u.roles)) return;
   await db.update(programaciones).set({ listaCerrada: false }).where(eq(programaciones.id, id));
   revalidatePath("/", "layout");
 }
@@ -91,6 +93,8 @@ export async function inscribirParticipante(_prev: Resultado, form: FormData): P
   const perm = await autorizarSesion(programacionId);
   if (!perm.u) return { error: perm.error };
   const dni = txt(form, "dni");
+  const lista = await db.query.programaciones.findFirst({ where: eq(programaciones.id, programacionId) });
+  if (!lista || lista.listaCerrada) return { error: "La lista está cerrada. Solicita su reapertura al administrador o a Gestión Documental." };
   if (!/^\d{8,12}$/.test(dni)) return { error: "Ingresa un DNI válido (solo números)." };
 
   let p = await db.query.participantes.findFirst({ where: eq(participantes.dni, dni) });
@@ -121,6 +125,8 @@ export async function inscribirParticipante(_prev: Resultado, form: FormData): P
 export async function quitarInscripcion(form: FormData) {
   const programacionId = Number(form.get("programacionId"));
   if ((await autorizarSesion(programacionId)).error) return;
+  const lista = await db.query.programaciones.findFirst({ where: eq(programaciones.id, programacionId) });
+  if (!lista || lista.listaCerrada) return;
   const participanteId = Number(form.get("quitar"));
   await db.transaction(async (tx) => {
     await tx
