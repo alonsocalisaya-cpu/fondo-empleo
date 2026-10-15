@@ -82,6 +82,9 @@ export default async function Capacitaciones({ searchParams }: PageProps<"/opera
     const todos = { ...params, ...extra };
     return `/operativo/capacitaciones?${new URLSearchParams(Object.entries(todos).filter(([, v]) => v))}`;
   };
+  const rolesPendientes = (Object.keys(ROLES) as RolFlujo[])
+    .map((k) => ({ k, n: filtradas.filter((f) => f.todo.pendientes.some((x) => x.roles.includes(k))).length }))
+    .filter(({ k, n }) => n > 0 || k === rol);
   const presets = [
     { t: "Esta semana", u: `/operativo/capacitaciones?desde=${lunes}&hasta=${sumarDias(lunes, 6)}` },
     { t: "Próximas 2 semanas", u: `/operativo/capacitaciones?desde=${hoy}&hasta=${sumarDias(hoy, 13)}` },
@@ -174,14 +177,11 @@ export default async function Capacitaciones({ searchParams }: PageProps<"/opera
         <Link href={q({ rol: "" })} aria-current={!rol ? "page" : undefined} className={`rounded-full border px-3 py-1.5 text-[13px] font-semibold ${!rol ? "border-marino bg-marino text-white" : "border-borde-fuerte bg-white text-marino"}`}>
           Todos
         </Link>
-        {(Object.keys(ROLES) as RolFlujo[]).map((k) => {
-          const n = filtradas.filter((f) => f.todo.pendientes.some((x) => x.roles.includes(k))).length;
-          return (
+        {rolesPendientes.map(({ k, n }) => (
             <Link key={k} href={q({ rol: k })} aria-current={rol === k ? "page" : undefined} className={`rounded-full border px-3 py-1.5 text-[13px] font-semibold ${rol === k ? "border-marino bg-marino text-white" : "border-borde-fuerte bg-white text-marino"}`}>
               {ROLES[k]} {n > 0 && <span className={`ml-1 rounded-full px-1.5 ${rol === k ? "bg-white/20" : "bg-[#d8eee8] text-acento-oscuro"}`}>{n}</span>}
             </Link>
-          );
-        })}
+        ))}
       </nav>
 
       {visibles.length === 0 && (

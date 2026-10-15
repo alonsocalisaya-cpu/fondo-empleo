@@ -31,7 +31,7 @@ import { moverStock } from "@/lib/stock";
 import { destinatariosDe } from "@/lib/avisos";
 import { borrarArchivo } from "@/lib/archivos";
 import { guardarLiquidacionDb, leerLiquidacion } from "@/lib/liquidacion-db";
-import { saldo, totalGastos, responsablesViaticos } from "@/lib/liquidacion";
+import { totalGastos, responsablesViaticos } from "@/lib/liquidacion";
 import { leerRecursos, leerEquipos, recursosDe } from "@/lib/recursos-sesion";
 import { leerDatosPost, leerRetornos } from "@/lib/post-sesion";
 import { seccionDe } from "@/lib/documentos";
@@ -82,14 +82,13 @@ async function asociarDocs(ids: number[], programacionId: number, cambios: Parti
 /** Error de stock: se lanza dentro de la transacción para deshacerla. */
 class SinStock extends Error {}
 
-async function validarRecursosInventario(recursos: ReturnType<typeof recursosDe>, exigirVinculo = true) {
+async function validarRecursosInventario(recursos: ReturnType<typeof recursosDe>) {
   const catalogo = await db.select().from(insumos).where(eq(insumos.activo, true));
   for (const r of recursos) {
-    const obligatorio = ["gaseosas", "galletas"].includes(r.descripcion.toLowerCase());
-    if (exigirVinculo && obligatorio && !r.insumoId) return `Vincula ${r.descripcion} con un ítem de Logística. El responsable de Logística debe registrar su stock inicial si aún no existe.`;
     if (!r.insumoId) continue;
     const item = catalogo.find((i) => i.id === r.insumoId);
-    if (!item || !["unidad", "unidades"].includes(item.unidad.toLowerCase().trim()) || (obligatorio && item.categoria !== "refrigerio")) return `Selecciona un ítem activo registrado en unidades para ${r.descripcion}.`;
+    const categoria = r.categoria ?? (["gaseosas", "galletas"].includes(r.descripcion.toLowerCase()) ? "refrigerio" : "material");
+    if (!item || item.categoria !== categoria || item.nombre.toLowerCase() !== r.descripcion.toLowerCase()) return `Selecciona un ítem activo de ${categoria === "refrigerio" ? "refrigerio" : "materiales"} que coincida con ${r.descripcion}.`;
   }
   return null;
 }
@@ -263,12 +262,13 @@ export async function registrarPaso(_prev: Res, f: FormData): Promise<Res> {
       break;
 
     case "solicitar_recursos": {
+      if (txt(f, "confirmarSolicitudRecursos") !== "si") return { error: "Confirma que tu solicitud de recursos y equipos está completa antes de enviarla." };
       const solicitud = leerRecursos(f);
       if (solicitud.error) return { error: solicitud.error };
       const equipos = leerEquipos(f);
       if (equipos.error) return { error: equipos.error };
       reg.recursos = solicitud.recursos;
-      const errorInventario = await validarRecursosInventario(solicitud.recursos, false);
+      const errorInventario = await validarRecursosInventario(solicitud.recursos);
       if (errorInventario) return { error: errorInventario };
       reg.equipos = equipos.equipos;
       break;
@@ -583,9 +583,7 @@ export async function registrarPaso(_prev: Res, f: FormData): Promise<Res> {
       await guardarLiquidacionDb(id, liq, por);
       reg.entregado = liq.presupuestado;
       reg.gastado = totalGastos(liq);
-      reg.saldo = saldo(liq);
       reg.lineas = liq.lineas.length;
-      reg.sinComprobante = liq.lineas.filter((l) => !l.comprobante).length;
       reg.liquidacion = liq;
       break;
     }

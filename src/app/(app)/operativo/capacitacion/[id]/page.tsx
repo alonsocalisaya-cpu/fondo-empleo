@@ -57,6 +57,7 @@ export default async function PaginaAsistencia({ params }: PageProps<"/operativo
 
   return (
     <>
+      <Link href={`/operativo/capacitaciones/${p.id}`} className="btn-secundario w-fit">← Volver a actividades de la sesión</Link>
       <Encabezado
         antetitulo={
           <>

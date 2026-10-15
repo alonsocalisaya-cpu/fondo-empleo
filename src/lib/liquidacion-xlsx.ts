@@ -2,12 +2,13 @@ import "server-only";
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { crearZip } from "./zip";
-import { MAX_LINEAS, importeTotalTexto, saldo, totalGastos, type DatosLiquidacion } from "./liquidacion";
+import { MAX_LINEAS, importeTotalTexto, totalGastos, type DatosLiquidacion } from "./liquidacion";
 
 /**
  * Llena el formato oficial «Liquidación de viáticos» (plantillas/liquidacion-viaticos) SIN tocar su diseño:
  * solo se escriben valores en las celdas en blanco del formato, conservando su estilo, bordes, logo,
- * celdas combinadas, fórmulas (total y saldo) y área de impresión.
+ * celdas combinadas, fórmula del total y área de impresión. El presupuesto queda en cero
+ * y la fila de saldo se oculta porque no se utiliza en esta rendición.
  */
 const DIR = path.join(process.cwd(), "plantillas", "liquidacion-viaticos");
 
@@ -45,7 +46,7 @@ export async function liquidacionXlsx(d: DatosLiquidacion) {
   hoja = poner(hoja, "D6", d.osft);
   hoja = poner(hoja, "K6", d.fecha);
   hoja = poner(hoja, "D8", d.nombre);
-  hoja = poner(hoja, "L8", Number(d.presupuestado) || 0);
+  hoja = poner(hoja, "L8", 0);
   hoja = poner(hoja, "D9", d.puesto);
   hoja = poner(hoja, "D10", d.descripcion);
   hoja = poner(hoja, "D11", d.cliente);
@@ -60,9 +61,10 @@ export async function liquidacionXlsx(d: DatosLiquidacion) {
     hoja = poner(hoja, `M${r}`, l.obs);
   });
   hoja = poner(hoja, "F42", importeTotalTexto(d));
-  // Las fórmulas del formato se conservan; solo se actualiza el valor ya calculado
+  // Se conserva el total; el saldo no se utiliza en esta rendición.
   hoja = poner(hoja, "M42", totalGastos(d), "SUM(I21:J41)");
-  hoja = poner(hoja, "M43", saldo(d), "L8-M42");
+  hoja = poner(hoja, "M43", null);
+  hoja = hoja.replace(/<row r="43"([^>]*)>/, (_fila, atributos: string) => `<row r="43"${atributos.replace(/ hidden="[^"]*"/g, "")} hidden="1">`);
 
   // Que Excel recalcule al abrir
   let libro = partes.find((p) => p.nombre === "xl/workbook.xml")!.datos.toString("utf8");

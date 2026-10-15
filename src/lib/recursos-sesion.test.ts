@@ -13,18 +13,23 @@ function solicitud(recursos: [string, string, string][]) {
   return f;
 }
 
-test("acepta los recursos obligatorios junto con materiales adicionales", () => {
+test("acepta refrigerios y materiales con sus unidades", () => {
   const r = leerRecursos(solicitud([["Gaseosas", "12", "botella"], ["Galletas", "24", "paquete"], ["Papelotes", "3", "unidad"]]));
   assert.equal(r.error, undefined);
   assert.equal(r.recursos.length, 3);
   assert.equal(r.recursos[2].cantidad, 3);
+  assert.equal(r.recursos[0].unidad, "botella");
 });
 
-test("rechaza solicitudes sin uno de los recursos obligatorios o con cantidades inválidas", () => {
-  assert.ok(leerRecursos(solicitud([["Galletas", "24", "paquete"]])).error);
+test("permite elegir solo los artículos necesarios o no solicitar recursos", () => {
+  assert.equal(leerRecursos(solicitud([["Galletas", "24", "paquete"]])).error, undefined);
+  assert.deepEqual(leerRecursos(new FormData()), { recursos: [] });
+});
+
+test("rechaza recursos con cantidades inválidas", () => {
   assert.ok(leerRecursos(solicitud([["Gaseosas", "0", "botella"], ["Galletas", "24", "paquete"]])).error);
   assert.ok(leerRecursos(solicitud([["Gaseosas", "1.5", "botella"], ["Galletas", "24", "paquete"]])).error);
-  assert.ok(leerRecursos(new FormData()).error);
+  assert.ok(leerRecursos(solicitud([["", "1", "unidad"]])).error);
 });
 
 test("no necesito recursos permite continuar y descarta campos anteriores", () => {
@@ -56,6 +61,8 @@ test("permite solicitar equipos sin refrigerio y descarta equipos con cero unida
   assert.deepEqual(leerEquipos(f).equipos, [{ descripcion: "Laptop", cantidad: 1, unidad: "unidad" }]);
   f.set("equipoCantidad", "-1");
   assert.ok(leerEquipos(f).error);
+  f.set("sinEquipos", "si");
+  assert.deepEqual(leerEquipos(f), { equipos: [] });
 });
 
 test("la preparación termina con la revisión documental y habilita Desarrollo", () => {

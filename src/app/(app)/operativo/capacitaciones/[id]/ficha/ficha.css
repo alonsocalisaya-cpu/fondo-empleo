@@ -1,0 +1,59 @@
+@page ficha-capacitacion {
+  size: A4 portrait;
+  margin: 20mm;
+  @bottom-right {
+    content: "Página " counter(page) " de " counter(pages);
+    font: 8pt Arial, sans-serif;
+    color: #45474b;
+  }
+}
+
+.ficha-capacitacion { color: #26282b; font-size: 13px; line-height: 1.35; }
+.ficha-capacitacion .ficha-hoja { background: white; padding: 32px 40px; margin-bottom: 24px; }
+.ficha-capacitacion .ficha-cabecera { display: flex; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 2px solid #36383b; padding-bottom: 8px; margin-bottom: 12px; }
+.ficha-capacitacion h1 { font-size: 22px; font-weight: 700; }
+.ficha-capacitacion .ficha-cabecera > div { flex-shrink: 0; text-align: right; font-size: 11px; }
+.ficha-capacitacion .ficha-bloque { margin-top: 14px; }
+.ficha-capacitacion h2 { font-size: 14px; font-weight: 700; border-bottom: 1px solid #94a3b8; margin-bottom: 6px; padding-bottom: 3px; }
+.ficha-capacitacion .ficha-campos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border-top: 1px solid #94a3b8; border-left: 1px solid #94a3b8; }
+.ficha-capacitacion .ficha-campos > div { padding: 5px 8px; border-bottom: 1px solid #94a3b8; border-right: 1px solid #94a3b8; overflow-wrap: anywhere; }
+.ficha-capacitacion dt { font-size: 11px; font-weight: 700; color: #45474b; }
+.ficha-capacitacion dd { margin: 2px 0 0; }
+.ficha-capacitacion table { width: 100%; border-collapse: collapse; table-layout: fixed; overflow-wrap: anywhere; }
+.ficha-capacitacion th, .ficha-capacitacion td { border: 1px solid #94a3b8; padding: 5px 7px; vertical-align: top; text-align: left; }
+.ficha-capacitacion th, .ficha-capacitacion .ficha-total { background: #eef1f5; font-weight: 700; }
+.ficha-capacitacion small { display: block; font-size: 10px; color: #45474b; margin-top: 2px; }
+.ficha-capacitacion .ficha-importe { text-align: right; font-variant-numeric: tabular-nums; }
+.ficha-capacitacion .ficha-nota, .ficha-capacitacion .ficha-pie { font-size: 11px; margin-top: 5px; }
+.ficha-capacitacion .ficha-pie { color: #45474b; border-top: 1px solid #c5c9ce; padding-top: 5px; margin-top: 14px; }
+.ficha-capacitacion .ficha-firmas { width: 65mm; max-width: 100%; margin: 32px auto 0; text-align: center; font-size: 11px; }
+.ficha-capacitacion .ficha-firmas > div { border-top: 1px solid #45474b; padding-top: 5px; }
+
+@media screen and (max-width: 600px) {
+  .ficha-capacitacion .ficha-hoja { padding: 24px 16px; }
+  .ficha-capacitacion .ficha-campos { grid-template-columns: 1fr; }
+}
+
+@media print {
+  body:has(.ficha-capacitacion), .espacio-trabajo:has(.ficha-capacitacion) {
+    display: block; min-height: 0; width: 100%; margin: 0; padding: 0; background: white;
+  }
+  .ficha-capacitacion { page: ficha-capacitacion; display: block; font-size: 8.5pt; line-height: 1.2; font-family: Arial, sans-serif; }
+  .ficha-capacitacion .ficha-hoja { padding: 0; margin: 0; }
+  .ficha-capacitacion .ficha-cabecera { margin-bottom: 3mm; padding-bottom: 2mm; }
+  .ficha-capacitacion h1 { font-size: 16pt; }
+  .ficha-capacitacion .ficha-cabecera > div { font-size: 8pt; }
+  .ficha-capacitacion .ficha-bloque { margin-top: 3mm; }
+  .ficha-capacitacion h2 { font-size: 10pt; padding-bottom: 1mm; margin-bottom: 1.5mm; break-after: avoid; }
+  .ficha-capacitacion .ficha-campos { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ficha-capacitacion .ficha-campos > div { padding: 1.2mm 1.8mm; break-inside: avoid; }
+  .ficha-capacitacion dt { font-size: 8pt; }
+  .ficha-capacitacion dd { margin-top: 0.6mm; }
+  .ficha-capacitacion th, .ficha-capacitacion td { padding: 1.1mm 1.8mm; }
+  .ficha-capacitacion thead { display: table-header-group; }
+  .ficha-capacitacion tr { break-inside: avoid; }
+  .ficha-capacitacion small { font-size: 7.5pt; margin-top: 0.5mm; }
+  .ficha-capacitacion .ficha-nota, .ficha-capacitacion .ficha-pie { font-size: 7.5pt; margin-top: 1.5mm; }
+  .ficha-capacitacion .ficha-pie { margin-top: 3mm; padding-top: 1.5mm; }
+  .ficha-capacitacion .ficha-firmas { margin-top: 8mm; gap: 5mm; font-size: 8pt; break-inside: avoid; }
+}

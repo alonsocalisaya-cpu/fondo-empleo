@@ -137,6 +137,7 @@ export default function ListaAsistencia({
 
       <form id="registro-asistencia" onSubmit={alGuardar} className="card flex scroll-mt-20 flex-col">
         <p className="border-b border-borde bg-[#f5f8fc] px-5 py-3 text-sm text-texto-2">Marca Presente, Tarde o Justificado. Al guardar, quienes no tengan una opción seleccionada se registrarán como ausentes.</p>
+        {notas.length > 0 && <p id="rango-notas" className="px-5 pt-3 text-sm text-texto-2">Las notas de entrada y salida deben estar entre 0 y 20. Puedes usar un decimal, por ejemplo 15.5. Deja vacío si todavía no se registró la nota.</p>}
         <input type="hidden" name="programacionId" value={programacionId} />
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-borde px-5 py-3.5">
           <div className="flex items-center gap-2.5">
@@ -217,12 +218,20 @@ export default function ListaAsistencia({
                             type="number"
                             min={0}
                             max={20}
-                            step={0.5}
+                            step={0.1}
                             inputMode="decimal"
                             defaultValue={f[n.campo] ?? ""}
                             disabled={cerrada || !asistio}
                             placeholder={asistio ? "0–20" : "—"}
                             aria-label={`${n.t} de ${f.nombre}`}
+                            aria-describedby="rango-notas"
+                            onChange={(event) => {
+                              const campo = event.currentTarget;
+                              campo.setCustomValidity("");
+                              if (campo.validity.badInput || (campo.value !== "" && (!Number.isFinite(campo.valueAsNumber) || campo.valueAsNumber < 0 || campo.valueAsNumber > 20))) {
+                                campo.setCustomValidity("La nota debe ser un número entre 0 y 20.");
+                              }
+                            }}
                             className="campo w-20 py-1.5 text-center tabular-nums disabled:bg-[#f3f4f6]"
                           />
                         </td>

@@ -76,8 +76,6 @@ export function leerLiquidacion(json: string): DatosLiquidacion | string {
   if (lineas.length > MAX_LINEAS) return `El formato tiene espacio para ${MAX_LINEAS} gastos.`;
   const mala = lineas.findIndex((l) => !l.descripcion || !(l.monto > 0) || (l.cantidad != null && !(l.cantidad > 0)));
   if (mala >= 0) return `Gasto N° ${mala + 1}: indica la descripción, un monto mayor a 0 y una cantidad válida.`;
-  const presupuestado = redondear(Number(d.presupuestado) || 0);
-  if (presupuestado < 0) return "El monto presupuestado no es válido.";
   return {
     osft: t(d.osft, 40),
     fecha: t(d.fecha, 10),
@@ -85,7 +83,7 @@ export function leerLiquidacion(json: string): DatosLiquidacion | string {
     puesto: t(d.puesto, 80),
     descripcion: t(d.descripcion, 250),
     cliente: t(d.cliente, 120),
-    presupuestado,
+    presupuestado: 0,
     lineas,
   };
 }

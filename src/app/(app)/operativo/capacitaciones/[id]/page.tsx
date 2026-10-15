@@ -146,7 +146,7 @@ function Resumen({ clave, r }: { clave: string; r: PasoRegistro }) {
     case "solicitar_recursos":
     case "revisar_recursos": {
       const recursos = recursosDe(d.recursos);
-      partes.push(recursos.length ? recursos.map((r) => `${r.cantidad} unidades de ${r.descripcion}${r.detalle ? ` (${r.detalle})` : ""}`).join(" · ") : "No se requieren recursos");
+      partes.push(recursos.length ? recursos.map((r) => `${r.cantidad} ${r.unidad || "unidades"} de ${r.descripcion}${r.detalle ? ` (${r.detalle})` : ""}`).join(" · ") : "No se requieren recursos");
       const equipos = recursosDe(d.equipos);
       partes.push(equipos.length ? `Equipos: ${equipos.map((r) => `${r.cantidad} unidades de ${r.descripcion}${r.detalle ? ` (${r.detalle})` : ""}`).join(" · ")}` : "Sin equipos solicitados");
       if (clave === "revisar_recursos") partes.push("Requerimientos aprobados · coordinación con el asistente confirmada");
@@ -209,8 +209,8 @@ function Resumen({ clave, r }: { clave: string; r: PasoRegistro }) {
       break;
     case "rendir_viaticos":
       partes.push(
-        `Presupuestado S/ ${Number(d.entregado ?? 0).toFixed(2)} · Gastado S/ ${Number(d.gastado).toFixed(2)} · Saldo S/ ${Number(d.saldo).toFixed(2)}`,
-        d.lineas != null ? `${d.lineas} gasto(s)${Number(d.sinComprobante) ? `, ${d.sinComprobante} sin comprobante` : ""}` : d.comprobantes ? String(d.comprobantes) : "",
+        `Total de viáticos S/ ${Number(d.gastado).toFixed(2)}`,
+        d.lineas != null ? `${d.lineas} gasto(s)` : "",
       );
       break;
     case "recibir_rendicion":
@@ -283,7 +283,7 @@ function ResumenAsistente({ e }: { e: Exp }) {
   const revision = pasos.revisar_recursos;
   const viaje = pasos.programa_viaje;
   const lista = (recursos: typeof aprobados) => recursos.length
-    ? <ul className="list-disc space-y-1 pl-5">{recursos.map((r, i) => <li key={i}>{r.cantidad} unidades · {r.descripcion}{r.detalle && <p className="break-words text-xs text-texto-2">Detalles: {r.detalle}</p>}</li>)}</ul>
+    ? <ul className="list-disc space-y-1 pl-5">{recursos.map((r, i) => <li key={i}>{r.cantidad} {r.unidad || "unidades"} · {r.descripcion}{r.detalle && <p className="break-words text-xs text-texto-2">Detalles: {r.detalle}</p>}</li>)}</ul>
     : <p>No se requieren recursos.</p>;
   return <section aria-label="Resumen de la preparación del asistente" className="space-y-3 rounded-lg border border-borde bg-[#f3f6fa] p-4 text-sm">
     <h4 className="font-semibold text-marino">Resumen de lo presentado</h4>
@@ -1375,8 +1375,6 @@ export default async function Expediente({ params, searchParams }: PageProps<"/o
   const opciones = [
     { href: `/operativo/capacitaciones/${p.id}/ficha`, t: "🖨 Imprimir ficha" },
     { href: `/operativo/capacitacion/${p.id}`, t: "📋 Lista de asistencia" },
-    ...(puede(u.roles, "cronograma", "editar") ? [{ href: `/estrategico/cronograma/${p.id}`, t: "✎ Editar programación" }] : []),
-    ...(puede(u.roles, "documental") ? [{ href: `/soporte/gestion-documental?sesion=${p.sesionId}`, t: "📁 Gestión documental" }] : []),
   ];
   const flecha = "flex size-8 items-center justify-center rounded-full border border-borde bg-white text-marino hover:bg-[#eef1f5]";
 

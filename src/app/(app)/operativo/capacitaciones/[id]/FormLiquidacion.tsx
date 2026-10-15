@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { MAX_LINEAS, importeEnLetras, saldo, totalGastos, type DatosLiquidacion, type LineaGasto } from "@/lib/liquidacion";
+import { MAX_LINEAS, importeEnLetras, totalGastos, type DatosLiquidacion, type LineaGasto } from "@/lib/liquidacion";
 import { guardarLiquidacion } from "./actions";
 
 const vacia = (): LineaGasto => ({ descripcion: "", cantidad: 1, unidad: "", monto: 0, comprobante: "", obs: "" });
@@ -22,7 +22,7 @@ export default function FormLiquidacion({
   guardada: boolean;
   soloLectura?: boolean;
 }) {
-  const [d, setD] = useState<DatosLiquidacion>(() => ({ ...inicial, lineas: inicial.lineas.length ? inicial.lineas : [vacia()] }));
+  const [d, setD] = useState<DatosLiquidacion>(() => ({ ...inicial, presupuestado: 0, lineas: inicial.lineas.length ? inicial.lineas : [vacia()] }));
   const [msg, setMsg] = useState<{ ok?: string; error?: string }>();
   const [pendiente, iniciar] = useTransition();
   const [sinGuardar, setSinGuardar] = useState(!guardada);
@@ -36,7 +36,6 @@ export default function FormLiquidacion({
     set("lineas", d.lineas.map((l, j) => (j === i ? { ...l, ...cambio } : l)));
 
   const total = totalGastos(d);
-  const s = saldo(d);
   const json = JSON.stringify(d);
 
   const guardar = (y?: () => void) => {
@@ -92,7 +91,7 @@ export default function FormLiquidacion({
         </div>
         <div className="sm:col-span-2">
           <label className="etiqueta" htmlFor="lq-monto">Monto presupuestado (S/)</label>
-          <input id="lq-monto" type="number" min={0} step="0.10" value={d.presupuestado || ""} onChange={(e) => set("presupuestado", Number(e.target.value) || 0)} className={campo} />
+          <input id="lq-monto" type="number" value={0} readOnly className={campo} />
         </div>
         <div className="sm:col-span-3">
           <label className="etiqueta" htmlFor="lq-nombre">Nombre</label>
@@ -121,7 +120,6 @@ export default function FormLiquidacion({
               <th className={`${celda} w-16`}>Cant.</th>
               <th className={`${celda} w-16`}>Und.</th>
               <th className={`${celda} w-24`}>Monto S/</th>
-              <th className={`${celda} w-32`}>N° comprobante</th>
               <th className={celda}>Observaciones</th>
               {!soloLectura && <th className={`${celda} w-8`}><span className="sr-only">Quitar</span></th>}
             </tr>
@@ -134,7 +132,6 @@ export default function FormLiquidacion({
                 <td className={celda}><input aria-label={`Cantidad ${i + 1}`} disabled={soloLectura} type="number" min={0} step="1" value={l.cantidad ?? ""} onChange={(e) => setLinea(i, { cantidad: e.target.value === "" ? null : Number(e.target.value) })} className={`${entrada} text-center`} /></td>
                 <td className={celda}><input aria-label={`Unidad ${i + 1}`} disabled={soloLectura} value={l.unidad} onChange={(e) => setLinea(i, { unidad: e.target.value })} placeholder="UND" className={`${entrada} text-center`} /></td>
                 <td className={celda}><input aria-label={`Monto ${i + 1}`} disabled={soloLectura} type="number" min={0} step="0.10" value={l.monto || ""} onChange={(e) => setLinea(i, { monto: Number(e.target.value) || 0 })} className={`${entrada} text-right tabular-nums`} /></td>
-                <td className={celda}><input aria-label={`Comprobante ${i + 1}`} disabled={soloLectura} value={l.comprobante} onChange={(e) => setLinea(i, { comprobante: e.target.value })} placeholder="B001-123 / sin comp." className={entrada} /></td>
                 <td className={celda}><input aria-label={`Observaciones ${i + 1}`} disabled={soloLectura} value={l.obs} onChange={(e) => setLinea(i, { obs: e.target.value })} className={entrada} /></td>
                 {!soloLectura && (
                   <td className={`${celda} text-center`}>
@@ -148,12 +145,7 @@ export default function FormLiquidacion({
             <tr className="font-semibold">
               <td className={celda} colSpan={4}>Importe total <span className="text-[11px] font-normal text-texto-2">({importeEnLetras(total)})</span></td>
               <td className={`${celda} text-right tabular-nums`}>{soles(total)}</td>
-              <td className={celda} colSpan={soloLectura ? 2 : 3} />
-            </tr>
-            <tr className="font-semibold">
-              <td className={celda} colSpan={4}>Saldo <span className="text-[11px] font-normal text-texto-2">(presupuestado − gastado{s >= 0 ? ": a devolver" : ": a reembolsar"})</span></td>
-              <td className={`${celda} text-right tabular-nums ${s < 0 ? "text-[#991b1b]" : ""}`}>{soles(s)}</td>
-              <td className={celda} colSpan={soloLectura ? 2 : 3} />
+              <td className={celda} colSpan={soloLectura ? 1 : 2} />
             </tr>
           </tfoot>
         </table>
@@ -164,7 +156,7 @@ export default function FormLiquidacion({
         </button>
       )}
       <p className="text-xs text-texto-2">
-        Solo se llenan los espacios del formato; su diseño no cambia. Firmas (Vo. Bo., Autoriza, Solicitante) van a mano en el formato impreso.
+        Firmas (Vo. Bo., Autoriza, Solicitante) van a mano en el formato impreso.
         {sinGuardar && !soloLectura && " · Hay cambios sin guardar."}
       </p>
       {msg?.error && <p role="alert" className="text-[13px] text-[#991b1b]">{msg.error}</p>}
