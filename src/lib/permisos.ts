@@ -59,17 +59,17 @@ export const PERMISOS_BASE: Record<RolUsuario, Partial<Record<Modulo, Nivel>>> =
   admin: Object.fromEntries((Object.keys(MODULOS) as Modulo[]).map((m) => [m, E])),
   jefe_proyecto: {
     inicio: V, calendario: V, cronograma: E, consultores: E, indicadores: V, acciones: E,
-    capacitaciones: E, beneficiarios: E, rrhh: V, logistica: E, sedes: E, mantenimiento: E, documental: E,
+    capacitaciones: E, beneficiarios: E, rrhh: V,
   },
-  jefe_comercial: { inicio: V, calendario: V, cronograma: V, indicadores: V, capacitaciones: E, logistica: V },
+  jefe_comercial: { inicio: V, calendario: V, cronograma: V, indicadores: V, capacitaciones: E },
   asistente: {
-    inicio: V, calendario: V, cronograma: V, capacitaciones: E, beneficiarios: E, logistica: V, mantenimiento: E, documental: V,
+    inicio: V, calendario: V, cronograma: V, capacitaciones: E, beneficiarios: E,
   },
   capacitador: { calendario: V, capacitaciones: E },
   gestion_documental: {
-    inicio: V, calendario: V, cronograma: V, capacitaciones: E, beneficiarios: V, logistica: V, mantenimiento: V, documental: E,
+    inicio: V, calendario: V, cronograma: V, capacitaciones: E, beneficiarios: V, logistica: E, sedes: E, mantenimiento: E, documental: E,
   },
-  administradora: { inicio: V, calendario: V, indicadores: V, capacitaciones: E, logistica: E, mantenimiento: V, rrhh: V },
+  administradora: { inicio: V, calendario: V, indicadores: V, capacitaciones: E, rrhh: V },
   rrhh: { inicio: V, calendario: V, cronograma: V, consultores: E, capacitaciones: V, beneficiarios: V, rrhh: E },
 };
 
@@ -96,8 +96,7 @@ export const nombresRoles = (r: Roles) => aLista(r).map((x) => ROLES_USUARIO[x])
 
 /** Módulos que puede abrir (al menos «ver») alguno de sus roles. */
 export function modulosDe(r: Roles): Modulo[] {
-  const m = permisosVigentes();
-  return (Object.keys(MODULOS) as Modulo[]).filter((mod) => aLista(r).some((x) => m[x]?.[mod]));
+  return (Object.keys(MODULOS) as Modulo[]).filter((mod) => nivel(r, mod) !== null);
 }
 
 /** El capacitador (solo con ese rol) trabaja únicamente con sus sesiones. */
@@ -116,6 +115,7 @@ export function moduloDe(ruta: string): Modulo | null {
 }
 
 export function nivel(r: Roles, modulo: Modulo): Nivel | null {
+  if (["logistica", "sedes", "mantenimiento", "documental"].includes(modulo) && !aLista(r).some((rol) => rol === "admin" || rol === "gestion_documental")) return null;
   const m = permisosVigentes();
   let mejor: Nivel | null = null;
   for (const x of aLista(r)) {
@@ -135,6 +135,10 @@ export function puede(r: Roles, modulo: Modulo, requerido: Nivel = "ver") {
 export const RUTAS_LIBRES = ["/cuenta", "/sin-permiso", "/archivos", "/notificaciones", "/api/notificaciones"];
 
 export function puedeAbrir(r: Roles, ruta: string) {
+  if (ruta === "/soporte" || ruta.startsWith("/soporte/")) {
+    if (!aLista(r).some((rol) => rol === "admin" || rol === "gestion_documental")) return false;
+    if (ruta === "/soporte") return true;
+  }
   if (RUTAS_LIBRES.some((x) => ruta === x || ruta.startsWith(`${x}/`))) return true;
   const m = moduloDe(ruta);
   return m === null ? aLista(r).includes("admin") : puede(r, m, "ver");
@@ -147,7 +151,7 @@ export function inicioDe(r: Roles) {
 
 /** ¿Este usuario puede registrar una actividad del flujo que corresponde a estos roles? */
 export function puedeRegistrarPaso(r: Roles, rolesPaso: RolFlujo[]) {
-  return aLista(r).some((x) => x === "admin" || (rolesPaso as string[]).includes(x));
+  return aLista(r).some((x) => x === "admin" || (rolesPaso as string[]).includes(x) || (x === "capacitador" && rolesPaso.includes("asistente")));
 }
 
 /** Solo estos responsables pueden reabrir una lista de asistencia cerrada. */

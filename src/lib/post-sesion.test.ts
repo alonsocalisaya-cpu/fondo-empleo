@@ -69,3 +69,12 @@ test("las notas van después de la devolución y solo aplican a sesiones ejecuta
   ctx.pasos.datos_capacitacion = { en: "2026-10-14", realizada: false };
   assert.equal(estadoPaso("registrar_notas", ctx), "no_aplica");
 });
+
+test("sin examen no se habilitan entregables saltando los pasos anteriores", () => {
+  const ctx: ContextoFlujo = { pasos: {}, examen: null, fueraDeArequipa: false };
+  assert.equal(estadoPaso("registrar_notas", ctx), "no_aplica");
+  assert.equal(estadoPaso("escanear_subir", ctx), "bloqueado");
+  assert.deepEqual(resumenFlujo(ctx, "completo").pendientes.map((p) => p.clave), ["validar_programacion"]);
+  ctx.pasos.recursos_post = { en: "2026-10-17" };
+  assert.equal(estadoPaso("escanear_subir", ctx), "disponible");
+});

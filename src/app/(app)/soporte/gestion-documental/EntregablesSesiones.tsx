@@ -90,7 +90,11 @@ export default async function EntregablesSesiones({ arbol, docs, sesionSel, exam
                       </div>
                       {programacionSel === p.id && <div className="space-y-3 border-t border-borde p-3">
                         <Link href={`/operativo/capacitaciones/${p.id}?vista=post`} className="enlace text-xs">Abrir flujo de la sesión</Link>
-                        <div className="space-y-3">
+                        <div className="overflow-x-auto rounded-lg border border-borde">
+                        <table className="w-full min-w-[760px] text-sm">
+                        <caption className="sr-only">Archivos entregables de la sesión del {fechaCorta(p.fecha)} en {p.sede.nombre}</caption>
+                        <thead className="bg-[#f3f6fa]"><tr><th scope="col" className="th w-52">Entregable</th><th scope="col" className="th">Archivos y descargas</th><th scope="col" className="th w-56">Subir documentos</th></tr></thead>
+                        <tbody className="divide-y divide-borde">
                         {ENTREGABLES.filter((e) => e.seccion !== "examen" || examen).map((e) => {
                           const documentosCategoria = archivos.filter((d) => seccionDe(d) === e.seccion);
                           const tipos = e.seccion === "examen"
@@ -98,19 +102,23 @@ export default async function EntregablesSesiones({ arbol, docs, sesionSel, exam
                               ...(examen === "entrada" || examen === "ambos" ? [{ valor: "examen_entrada", texto: "Examen de entrada" }] : []),
                               ...(examen === "salida" || examen === "ambos" ? [{ valor: "examen_salida", texto: "Examen de salida" }] : []),
                             ] : [{ valor: e.tipo, texto: e.titulo }];
-                          return <Desplegable key={e.seccion} titulo={e.titulo} persistencia={`entregable-${p.id}-${s.id}-${e.seccion}`} cantidad={`${documentosCategoria.length} archivo(s)${e.seccion === "talleres" ? " · Opcional" : ""}`}>
-                            <div className="bg-[#f3f6fa] px-4 py-3 text-sm text-marino">
+                          return <tr key={e.seccion} className="align-top">
+                            <th scope="row" className="px-4 py-4 text-left font-normal text-marino">
+                              <span className="font-semibold">{e.titulo}</span>
                               <span className="mt-1 block text-xs text-texto-2">{e.seccion === "fotos" ? `${nFotos}/${MINIMO_FOTOS} fotos · ${nFotos >= MINIMO_FOTOS ? "Mínimo cumplido" : `Faltan ${MINIMO_FOTOS - nFotos}`}` : `${documentosCategoria.length} archivo(s)`}</span>
-                            </div>
-                            <div className="min-w-0 space-y-3 border-t border-[#e6ebf1] p-4 md:border-l md:border-t-0">
-                              {e.seccion === "examen" && <p className="text-xs text-texto-2">Corresponde examen de {examen === "ambos" ? "entrada y salida" : examen}.</p>}
-                              {e.seccion === "fotos" && <p className="text-xs text-texto-2">Mínimo de {MINIMO_FOTOS} fotos por programación. Puedes agregarlas en varias subidas.</p>}
-                              {e.seccion === "talleres" && <p className="text-xs text-texto-2">Este entregable es opcional.</p>}
-                              {documentosCategoria.length ? <Archivos documentos={documentosCategoria} /> : <p className="text-xs text-texto-2">Sin archivos subidos.</p>}
+                              {e.seccion === "examen" && <p className="mt-1 text-xs text-texto-2">{examen === "ambos" ? "Entrada y salida" : examen === "entrada" ? "Entrada" : "Salida"}</p>}
+                              {e.seccion === "talleres" && <p className="mt-1 text-xs text-texto-2">Opcional</p>}
+                            </th>
+                            <td className="min-w-0 px-4 py-4">
+                              {documentosCategoria.length ? <ArchivosRepositorio docs={documentosCategoria} compacto /> : <p className="text-xs text-texto-2">Sin archivos subidos.</p>}
+                            </td>
+                            <td className="px-4 py-4">
                               {p.estado !== "cancelada" && <SiPuede modulo="documental"><FormSubirDocumento sesiones={[]} sesionInicial={String(p.sesionId)} programacionId={p.id} seccion={e.seccion} tipos={tipos} accept={e.accept} /></SiPuede>}
-                            </div>
-                          </Desplegable>;
+                            </td>
+                          </tr>;
                         })}
+                        </tbody>
+                        </table>
                         </div>
                       </div>}
                     </div>;

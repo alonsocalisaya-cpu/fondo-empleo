@@ -10,6 +10,7 @@ import { Encabezado, Vacio } from "@/components/ui";
 import CampoFecha from "@/components/CampoFecha";
 import PestanasSeguimiento from "./PestanasSeguimiento";
 import TotalesSede from "./TotalesSede";
+import ExportarSeguimiento from "@/components/ExportarSeguimiento";
 
 export const metadata = { title: "Seguimiento de asistencia" };
 const RUTA = "/operativo/seguimiento-asistencia";
@@ -74,6 +75,7 @@ export default async function SeguimientoAsistencia({ searchParams }: { searchPa
       <div><label htmlFor="seg-hasta" className="etiqueta">Hasta</label><CampoFecha id="seg-hasta" name="hasta" value={hasta} /></div>
       <button className="btn-oscuro">Ver seguimiento</button><Link href={RUTA} className="btn-secundario">Limpiar</Link>
     </form>
+    <ExportarSeguimiento titulo="Seguimiento de asistencia" contexto={`Sede: ${sede?.nombre ?? ""} · Desde: ${desde || "Sin límite"} · Hasta: ${hasta || "Sin límite"} · Búsqueda: ${q || "Todos"}`} />
     <section className="card overflow-hidden">
       <div className="space-y-2 border-b border-borde px-4 py-3">
         <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="font-semibold text-marino">Asistencia por beneficiario{sede ? ` · ${sede.nombre}` : ""}</h2><span className="text-xs text-texto-2">{filas.length} beneficiarios · {columnas.length} sesiones programadas</span></div>
@@ -81,7 +83,7 @@ export default async function SeguimientoAsistencia({ searchParams }: { searchPa
         <p className="text-xs text-texto-2">Cada columna corresponde a una sesión programada. En sesiones terminadas, los inscritos sin marca cuentan como ausentes; las futuras se muestran como «Por realizar». Desliza la tabla para ver las demás fechas.</p>
       </div>
       {!sede ? <Vacio>No hay sedes registradas.</Vacio> : !columnas.length ? <Vacio>No hay sesiones programadas en el rango seleccionado para esta sede.</Vacio> : !filas.length ? <Vacio>No se encontraron beneficiarios.</Vacio> : <div className="max-h-[70vh] overflow-auto" tabIndex={0} role="region" aria-label={`Tabla de seguimiento de asistencia de ${sede.nombre}`}>
-        <table className="table-fixed border-separate border-spacing-0 text-[11px]" style={{ width: `${348 + columnas.length * 72 + 5 * 44}px` }}>
+        <table data-exportar-seguimiento className="table-fixed border-separate border-spacing-0 text-[11px]" style={{ width: `${348 + columnas.length * 72 + 5 * 44}px` }}>
           <colgroup><col style={{ width: 36 }} /><col style={{ width: 224 }} /><col style={{ width: 88 }} />{columnas.map((p) => <col key={p.id} style={{ width: 72 }} />)}{[0, 1, 2, 3, 4].map((i) => <col key={`total-${i}`} style={{ width: 44 }} />)}</colgroup>
           <caption className="sr-only">Asistencia de los beneficiarios de {sede.nombre} por fecha y sesión.</caption>
           <thead>

@@ -195,10 +195,11 @@ export function estadoPaso(clave: string, c: ContextoFlujo): EstadoPaso {
   if (p.aplica && !p.aplica(c)) return "no_aplica";
   if (p.etapa === "post" && clave !== "sesion_realizada" && noRealizada(c)) return "bloqueado";
   if (c.pasos[clave]) return "hecho";
-  const listo = p.requiere.every((r) => {
+  const requisitoCumplido = (r: string): boolean => {
     const e = estadoPaso(r, c);
-    return e === "hecho" || e === "no_aplica";
-  });
+    return e === "hecho" || (e === "no_aplica" && PASO[r].requiere.every(requisitoCumplido));
+  };
+  const listo = p.requiere.every(requisitoCumplido);
   return listo ? "disponible" : "bloqueado";
 }
 
