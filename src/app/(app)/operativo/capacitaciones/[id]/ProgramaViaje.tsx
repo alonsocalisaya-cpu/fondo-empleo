@@ -13,7 +13,7 @@ export default function ProgramaViaje({ plantillas, fecha }: { plantillas: React
   return <fieldset className="space-y-3">
     <legend className="mb-2 text-sm font-semibold">¿Corresponde presentar un programa de viaje?</legend>
     <label className="flex items-center gap-2 text-sm"><input type="radio" name="viajeCorresponde" value="si" required checked={corresponde === true} onChange={() => setCorresponde(true)} />Sí, presentar programa de viaje.</label>
-    <label className="flex items-center gap-2 text-sm"><input type="radio" name="viajeCorresponde" value="no" required checked={corresponde === false} onChange={() => setCorresponde(false)} />No corresponde.</label>
+    <label className="flex items-center gap-2 text-sm"><input type="radio" name="viajeCorresponde" value="no" required checked={corresponde === false} onChange={() => setCorresponde(false)} />No es necesario.</label>
     {corresponde && <div className="space-y-3">
       <section className="space-y-3 rounded-lg border border-borde p-4">
         <h4 className="font-semibold text-marino">Completar programa de viaje en Word</h4>

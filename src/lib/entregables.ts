@@ -12,7 +12,6 @@ export const ENTREGABLES: { seccion: Seccion; titulo: string; tipo: string; acce
   { seccion: "examen", titulo: "Exámenes", tipo: "examen_entrada" },
   { seccion: "fotos", titulo: "Fotos", tipo: "evidencia", accept: ".jpg,.jpeg,.png,.heic" },
   { seccion: "video", titulo: "Videos", tipo: "evidencia", accept: ".mp4,.mov,.avi,.3gp" },
-  { seccion: "viaticos", titulo: "Viáticos", tipo: "ficha" },
 ];
 
 type DocumentoEntregable = { tipo: string; seccion?: string | null; archivo?: string | null; nombre?: string | null };
