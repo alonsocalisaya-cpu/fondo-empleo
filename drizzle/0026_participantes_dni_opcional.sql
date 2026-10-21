@@ -1,0 +1,1 @@
+ALTER TABLE "participantes" ALTER COLUMN "dni" DROP NOT NULL;

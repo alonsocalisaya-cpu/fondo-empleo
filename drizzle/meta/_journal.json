@@ -183,6 +183,13 @@
       "when": 1791518855458,
       "tag": "0025_documentos_tamano_bigint",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1792515486668,
+      "tag": "0026_participantes_dni_opcional",
+      "breakpoints": true
     }
   ]
 }

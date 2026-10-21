@@ -29,30 +29,24 @@ function Campos({ filas, limite = 100 }: { filas: CampoFicha[]; limite?: number 
   return <dl className="ficha-campos">{filas.map((fila) => <div key={fila.titulo}><dt>{fila.titulo}</dt><dd>{corto(fila.valor, limite)}</dd></div>)}</dl>;
 }
 
+function TablaResumen({ campos }: { campos: CampoFicha[] }) {
+  return <table className="ficha-tabla-resumen"><thead><tr>{campos.map((campo) => <th key={campo.titulo} scope="col">{campo.titulo}</th>)}</tr></thead><tbody><tr>{campos.map((campo) => <td key={campo.titulo}>{campo.valor}</td>)}</tr></tbody></table>;
+}
+
 /** Resumen continuo para impresión. Las listas extensas conservan su detalle en el expediente. */
 export default function FichaResumen({ ficha }: { ficha: ResumenFicha }) {
-  const recursos = ficha.recursos.slice(0, 6);
   const gastos = ficha.gastos?.slice(0, 5) ?? [];
   const otrosGastos = ficha.gastos?.slice(5) ?? [];
   const total = ficha.gastos?.reduce((suma, gasto) => suma + gasto.monto, 0) ?? 0;
   const encabezado = <header className="ficha-cabecera"><h1>Ficha de capacitación</h1><div>N.° {ficha.numero}</div></header>;
-  const pie = <p className="ficha-pie">Ficha resumida. Los textos extensos y el detalle completo de recursos, devoluciones y gastos se consultan en el expediente de la sesión.</p>;
 
   return <div className="ficha-capacitacion">
     <article className="ficha-hoja">
       {encabezado}
       <Bloque titulo="Datos generales"><Campos filas={ficha.generales} limite={75} /></Bloque>
-      <Bloque titulo="Recursos aprobados y devoluciones">
-        <table><colgroup><col style={{ width: "58%" }} /><col style={{ width: "21%" }} /><col style={{ width: "21%" }} /></colgroup><thead><tr><th>Artículo / equipo</th><th>Aprobado</th><th>Devuelto</th></tr></thead><tbody>
-          {recursos.map((r, i) => <tr key={i}><td>{corto(r.nombre, 65)}{r.detalle && <small>{corto(r.detalle, 45)}</small>}</td><td>{r.cantidad} {corto(r.unidad, 15)}</td><td>{r.retorno == null ? "Pendiente" : `${r.retorno} ${corto(r.unidad, 15)}`}</td></tr>)}
-          {!recursos.length && <tr><td colSpan={3}>{ficha.recursosAprobados ? "No se requieren recursos ni equipos." : "Pendiente de aprobación de recursos."}</td></tr>}
-          {ficha.recursos.length > 6 && <tr><td colSpan={3}>Otros {ficha.recursos.length - 6} artículos aprobados: cantidades y devoluciones en el expediente.</td></tr>}
-        </tbody></table>
-        <p className="ficha-nota">Devolución: {ficha.devolucionRegistrada ? "registrada" : "pendiente de registro"}.</p>
-      </Bloque>
       <Bloque titulo="Ejecución e incidencias"><Campos filas={ficha.ejecucion} limite={100} /></Bloque>
-      <Bloque titulo="Asistencia"><Campos filas={ficha.asistencia} limite={70} /><p className="ficha-nota">Porcentaje = (presentes + tardanzas) / programados × 100.</p></Bloque>
-      <Bloque titulo="Registro de notas"><Campos filas={ficha.notas} limite={75} /></Bloque>
+      <Bloque titulo="Asistencia"><TablaResumen campos={ficha.asistencia} /></Bloque>
+      <Bloque titulo="Registro de notas"><TablaResumen campos={ficha.notas} /></Bloque>
       <Bloque titulo="Entregables"><table><thead><tr><th>Categoría</th><th>Estado</th></tr></thead><tbody>{ficha.entregables.map((fila) => <tr key={fila.titulo}><td>{fila.titulo}</td><td>{fila.valor}</td></tr>)}</tbody></table></Bloque>
       <Bloque titulo="Viáticos">
         {ficha.gastos ? <table><colgroup><col style={{ width: "78%" }} /><col style={{ width: "22%" }} /></colgroup><thead><tr><th>Concepto</th><th className="ficha-importe">Importe (S/)</th></tr></thead><tbody>
@@ -61,9 +55,6 @@ export default function FichaResumen({ ficha }: { ficha: ResumenFicha }) {
           <tr className="ficha-total"><th>Total de viáticos</th><td className="ficha-importe">{soles(total)}</td></tr>
         </tbody></table> : <p>Pendiente de registro.</p>}
       </Bloque>
-      <p className="ficha-nota"><strong>Cierre:</strong> {ficha.cierre}</p>
-      <div className="ficha-firmas"><div>Asistente de Capacitación<small>Preparación y ejecución</small></div></div>
-      {pie}
     </article>
   </div>;
 }

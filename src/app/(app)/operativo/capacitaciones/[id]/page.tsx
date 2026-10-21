@@ -1247,7 +1247,7 @@ function Tarjeta({ s, n, e, est, u, href }: { s: EstadoItem; n: number; e: Exp; 
             ))}
           </div>
         )}
-        {(s.clave === "rendir_viaticos" || s.clave === "recibir_rendicion") && s.estado === "hecho" && e.liquidacion.guardada && (
+        {s.clave === "recibir_rendicion" && s.estado === "hecho" && e.liquidacion.guardada && (
           <a href={`/operativo/capacitaciones/${e.p.id}/liquidacion`} className="btn-secundario self-start py-1.5 text-[13px]">
             ⬇ Descargar liquidación de viáticos (formato lleno)
           </a>
@@ -1263,6 +1263,11 @@ function Tarjeta({ s, n, e, est, u, href }: { s: EstadoItem; n: number; e: Exp; 
         )}
         {s.estado === "bloqueado" && faltan.length > 0 && <p className="text-xs text-texto-2">Espera: {faltan.join(" · ")}</p>}
         {s.estado === "no_aplica" && <p className="text-xs text-texto-2">{s.clave === "registrar_notas" ? e.ctx.pasos.datos_capacitacion?.realizada === false ? "No aplica: la capacitación no se ejecutó." : "No corresponde examen en esta sesión." : s.clave === "escanear_subir" ? "No aplica: la capacitación no se ejecutó." : "No aplica en esta sesión."}</p>}
+        {s.clave === "rendir_viaticos" && s.estado === "hecho" && (
+          <Link href={`/operativo/capacitaciones/${e.p.id}/ficha`} target="_blank" className="btn-secundario self-start py-1.5 text-[13px]">
+            ⬇ Descargar Ficha de capacitación
+          </Link>
+        )}
       </div>
     </li>
   );
@@ -1384,9 +1389,9 @@ export default async function Expediente({ params, searchParams }: PageProps<"/o
         antetitulo={<><Link href="/operativo/capacitaciones" className="hover:underline">Capacitaciones</Link> › {ruta(p)}</>}
         titulo={[p.sesion.nombre, ...combinadas(p)].join(" + ")}
         acciones={
-          <details className="relative">
+          <details className="relative z-40">
             <summary className="btn-secundario cursor-pointer list-none py-2">Formatos ▾</summary>
-            <div className="absolute right-0 z-20 mt-1 flex w-56 flex-col rounded-lg border border-borde bg-white py-1 shadow-lg">
+            <div className="absolute left-0 z-50 mt-1 flex w-56 max-w-[calc(100vw-2rem)] flex-col rounded-lg border border-borde bg-white py-1 shadow-lg">
               {opciones.map((o) => (
                 <Link key={o.href} href={o.href} className="px-3.5 py-2 text-sm text-marino hover:bg-[#eef1f5]">{o.t}</Link>
               ))}

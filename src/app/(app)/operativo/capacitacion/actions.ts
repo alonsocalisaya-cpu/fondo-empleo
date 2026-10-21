@@ -87,7 +87,7 @@ export async function reabrirLista(form: FormData) {
   revalidatePath("/", "layout");
 }
 
-/** Inscribe a un participante por DNI. Si no existe, lo crea con los datos del formulario. */
+/** Inscribe por ID existente o DNI. Si el DNI no existe, lo crea con los datos del formulario. */
 export async function inscribirParticipante(_prev: Resultado, form: FormData): Promise<Resultado> {
   const programacionId = Number(form.get("programacionId"));
   const perm = await autorizarSesion(programacionId);
@@ -95,9 +95,12 @@ export async function inscribirParticipante(_prev: Resultado, form: FormData): P
   const dni = txt(form, "dni");
   const lista = await db.query.programaciones.findFirst({ where: eq(programaciones.id, programacionId) });
   if (!lista || lista.listaCerrada) return { error: "La lista está cerrada. Solicita su reapertura al administrador o a Gestión Documental." };
-  if (!/^\d{8,12}$/.test(dni)) return { error: "Ingresa un DNI válido (solo números)." };
+  const participanteId = Number(form.get("participanteId"));
+  const porId = Number.isSafeInteger(participanteId) && participanteId > 0;
+  if (!porId && !/^\d{8,12}$/.test(dni)) return { error: "Ingresa un DNI válido (solo números)." };
 
-  let p = await db.query.participantes.findFirst({ where: eq(participantes.dni, dni) });
+  let p = await db.query.participantes.findFirst({ where: porId ? eq(participantes.id, participanteId) : eq(participantes.dni, dni) });
+  if (porId && !p) return { error: "El beneficiario ya no existe." };
   if (!p) {
     const nombres = txt(form, "nombres");
     const apellidos = txt(form, "apellidos");

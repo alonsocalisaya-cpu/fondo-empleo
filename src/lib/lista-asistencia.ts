@@ -21,7 +21,7 @@ export type HojaLista = {
   proyecto?: string | null;
   fecha: string; // dd/mm/aaaa
   sesion: string;
-  personas: { nombre: string; dni: string }[];
+  personas: { nombre: string; dni: string | null }[];
   /** Filas en blanco al final para quien llegue sin estar en la lista */
   enBlanco?: number;
 };
@@ -42,7 +42,7 @@ function hojaXml(h: HojaLista) {
   for (let i = 0; i < total; i++) {
     const r = 8 + i;
     const p = h.personas[i];
-    const dni = p && /^\d+$/.test(p.dni) ? num(`C${r}`, 7, Number(p.dni)) : p ? txt(`C${r}`, 7, p.dni) : vacia(`C${r}`, 7);
+    const dni = p?.dni ? /^\d+$/.test(p.dni) ? num(`C${r}`, 7, Number(p.dni)) : txt(`C${r}`, 7, p.dni) : vacia(`C${r}`, 7);
     filas.push(
       `<row r="${r}" spans="1:4" s="5" customFormat="1" ht="52.5" customHeight="1">${num(`A${r}`, 14, i + 1)}${p ? txt(`B${r}`, 7, p.nombre) : vacia(`B${r}`, 7)}${dni}${vacia(`D${r}`, 4)}</row>`,
     );

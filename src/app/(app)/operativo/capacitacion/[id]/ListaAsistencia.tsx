@@ -9,7 +9,7 @@ type Estado = "presente" | "tarde" | "ausente" | "justificado";
 export type FilaAsistencia = {
   participanteId: number;
   nombre: string;
-  dni: string;
+  dni: string | null;
   area: string | null;
   estado: Estado | null;
   horaIngreso: string | null;
@@ -44,7 +44,7 @@ export default function ListaAsistencia({
 }: {
   programacionId: number;
   filas: FilaAsistencia[];
-  pendientes: { participanteId: number; nombres: string; apellidos: string; dni: string }[];
+  pendientes: { participanteId: number; nombres: string; apellidos: string; dni: string | null }[];
   cerrada: boolean;
   /** Si la sesión tiene examen, se piden las notas en la misma lista */
   examen?: Examen;
@@ -273,7 +273,7 @@ export default function ListaAsistencia({
           <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-semibold text-marino">Beneficiarios pendientes de inscripción</h2><p className="mt-1 text-xs text-texto-2">Personas de la sede y turno de esta sesión que todavía no están en la lista.</p></div><span className="rounded-full bg-[#eef3f8] px-3 py-1 text-xs text-marino">{pendientes.length} pendientes</span></div>
           <label className="etiqueta" htmlFor="buscar-pendiente">Buscar por DNI o nombre<input id="buscar-pendiente" value={buscarPendiente} onChange={(e) => setBuscarPendiente(e.target.value)} placeholder="Escribe el DNI, nombres o apellidos" className="campo mt-1" /></label>
           <div className="max-h-96 space-y-2 overflow-y-auto">{pendientesVisibles.map((p) => <form key={p.participanteId} onSubmit={alInscribir} className="flex flex-wrap items-center gap-3 rounded-xl border border-borde bg-[#f8fafc] p-3">
-            <input type="hidden" name="programacionId" value={programacionId} /><input type="hidden" name="dni" value={p.dni} />
+            <input type="hidden" name="programacionId" value={programacionId} /><input type="hidden" name="dni" value={p.dni ?? ""} /><input type="hidden" name="participanteId" value={p.participanteId} />
             <div className="min-w-0 flex-1"><p className="break-words text-sm font-medium text-marino">{p.apellidos}, {p.nombres}</p><p className="mt-1 text-xs text-texto-2">DNI: {p.dni}</p></div>
             <button disabled={inscribiendo} className="btn-secundario shrink-0 px-4 py-2 text-sm">+ Agregar a la lista</button>
           </form>)}{!pendientesVisibles.length && <p className="rounded-lg bg-[#f5f8fc] p-4 text-sm text-texto-2">{pendientes.length ? "No se encontraron beneficiarios con esa búsqueda." : "Todos los beneficiarios de esta sede y turno están inscritos."}</p>}</div>

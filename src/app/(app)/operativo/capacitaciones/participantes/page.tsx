@@ -102,7 +102,14 @@ export default async function Participantes({ searchParams }: PageProps<"/operat
           <select id="sede" name="sede" defaultValue={sinSede ? "sin" : sede || ""} className="campo">
             <option value="">Todas las sedes ({total})</option>
             <option value="sin">Sin sede ({nSede.get(null) ?? 0})</option>
-            {listaSedes.filter((x) => nSede.get(x.id)).map((x) => <option key={x.id} value={x.id}>{x.nombre} ({nSede.get(x.id)})</option>)}
+            {programas.map((region) => {
+              const sedesRegion = listaSedes.filter((x) => x.estructuraId === region.id && nSede.get(x.id));
+              return sedesRegion.length > 0 && (
+                <optgroup key={region.id} label={region.nombre}>
+                  {sedesRegion.map((x) => <option key={x.id} value={x.id}>{x.nombre} ({nSede.get(x.id)})</option>)}
+                </optgroup>
+              );
+            })}
           </select>
         </div>
         <div className="w-full sm:w-80">

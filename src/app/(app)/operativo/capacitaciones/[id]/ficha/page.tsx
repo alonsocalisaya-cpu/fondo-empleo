@@ -64,18 +64,16 @@ export default async function Ficha({ params }: PageProps<"/operativo/capacitaci
     ],
     asistencia: [
       { titulo: "Programados", valor: String(asistencia.programados) },
-      { titulo: "Asistentes (presentes + tardanzas)", valor: `${asistentes} (${asistencia.presentes} + ${asistencia.tardanzas})` },
+      { titulo: "Asistencias", valor: String(asistentes) },
       { titulo: "Porcentaje de asistencia", valor: asistencia.programados ? `${((asistentes * 100) / asistencia.programados).toFixed(1)}%` : "Sin programados" },
-      { titulo: "Ausentes / justificados", valor: `${asistencia.ausentes} / ${asistencia.justificados}` },
-      { titulo: "Pendientes de registrar", valor: String(asistencia.pendientes) },
-      { titulo: "Registro de asistencia", valor: pasos.registrar_asistencia ? "Confirmado" : datos?.realizada === false ? "No corresponde" : "Pendiente" },
     ],
     notas: notasCorresponden ? [
       { titulo: "Examen / registro", valor: `${ctx.examen === "ambos" ? "Entrada y salida" : ctx.examen === "entrada" ? "Entrada" : "Salida"} · ${pasos.registrar_notas ? "Confirmado" : "Pendiente"}` },
       { titulo: "Con notas completas / faltantes", valor: `${notas.conNotas} / ${notas.diferencia}` },
-      { titulo: "Notas de entrada / salida", valor: `${notas.entrada ?? "N/C"} / ${notas.salida ?? "N/C"}` },
-      { titulo: "Motivo de diferencia", valor: texto(pasos.registrar_notas?.motivoDiferencia) },
-    ] : [{ titulo: "Exámenes", valor: "No corresponde" }],
+    ] : [
+      { titulo: "Examen / registro", valor: "No corresponde" },
+      { titulo: "Con notas completas / faltantes", valor: "No corresponde" },
+    ],
     entregables: ENTREGABLES.map((categoria) => {
       const archivos = documentos.filter((d) => seccionDe(d) === categoria.seccion);
       const cantidad = categoria.seccion === "fotos" ? fotosEntregadas(archivos) : archivos.length;

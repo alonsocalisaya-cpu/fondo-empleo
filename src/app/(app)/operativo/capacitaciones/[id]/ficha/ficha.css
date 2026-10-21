@@ -21,6 +21,7 @@
 .ficha-capacitacion dd { margin: 2px 0 0; }
 .ficha-capacitacion table { width: 100%; border-collapse: collapse; table-layout: fixed; overflow-wrap: anywhere; }
 .ficha-capacitacion th, .ficha-capacitacion td { border: 1px solid #94a3b8; padding: 5px 7px; vertical-align: top; text-align: left; }
+.ficha-capacitacion .ficha-tabla-resumen th, .ficha-capacitacion .ficha-tabla-resumen td { text-align: center; vertical-align: middle; }
 .ficha-capacitacion th, .ficha-capacitacion .ficha-total { background: #eef1f5; font-weight: 700; }
 .ficha-capacitacion small { display: block; font-size: 10px; color: #45474b; margin-top: 2px; }
 .ficha-capacitacion .ficha-importe { text-align: right; font-variant-numeric: tabular-nums; }

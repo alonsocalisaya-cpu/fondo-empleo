@@ -22,7 +22,7 @@ export async function editarBeneficiario(_prev: { error?: string } | undefined, 
   const telefono = texto("telefono");
   const area = texto("area");
   const sedeId = texto("sedeId") ? Number(f.get("sedeId")) : null;
-  if (!/^\d{8,12}$/.test(dni)) return { error: "El DNI debe tener entre 8 y 12 dígitos." };
+  if (dni && !/^\d{8,12}$/.test(dni)) return { error: "El DNI debe tener entre 8 y 12 dígitos." };
   if (!nombres || !apellidos || nombres.length > 100 || apellidos.length > 100) return { error: "Completa nombres y apellidos, con un máximo de 100 caracteres cada uno." };
   if (email.length > 150 || (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) return { error: "Ingresa un correo válido de hasta 150 caracteres." };
   if (telefono.length > 30 || area.length > 120) return { error: "El teléfono admite hasta 30 caracteres y el área hasta 120." };
@@ -32,7 +32,7 @@ export async function editarBeneficiario(_prev: { error?: string } | undefined, 
     await db.transaction(async (tx) => {
       const b = await tx.query.participantes.findFirst({ where: eq(participantes.id, id) });
       if (!b) throw new Error("El beneficiario ya no existe.");
-      await tx.update(participantes).set({ dni, nombres, apellidos, sedeId, email: email || null, telefono: telefono || null, area: area || null }).where(eq(participantes.id, id));
+      await tx.update(participantes).set({ dni: dni || null, nombres, apellidos, sedeId, email: email || null, telefono: telefono || null, area: area || null }).where(eq(participantes.id, id));
       if (b.sedeId !== sedeId) {
         const hoy = hoyISO();
         await tx.execute(sql`delete from inscripciones i using programaciones p

@@ -81,7 +81,7 @@ export const participantes = pgTable("participantes", {
   id: serial("id").primaryKey(),
   nombres: varchar("nombres", { length: 100 }).notNull(),
   apellidos: varchar("apellidos", { length: 100 }).notNull(),
-  dni: varchar("dni", { length: 15 }).notNull().unique(),
+  dni: varchar("dni", { length: 15 }).unique(),
   email: varchar("email", { length: 150 }),
   telefono: varchar("telefono", { length: 30 }),
   area: varchar("area", { length: 120 }),
