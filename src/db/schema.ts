@@ -91,6 +91,19 @@ export const participantes = pgTable("participantes", {
   creadoEn: creadoEn(),
 });
 
+/** Valores de sede y turno conservados tal como eran al realizar el cambio. */
+export const historialBeneficiarios = pgTable("historial_beneficiarios", {
+  id: serial("id").primaryKey(),
+  participanteId: integer("participante_id").notNull().references(() => participantes.id, { onDelete: "cascade" }),
+  sedeAnterior: varchar("sede_anterior", { length: 120 }),
+  sedeNueva: varchar("sede_nueva", { length: 120 }),
+  turnoAnterior: varchar("turno_anterior", { length: 10 }),
+  turnoNuevo: varchar("turno_nuevo", { length: 10 }).notNull(),
+  usuarioId: integer("usuario_id").notNull(),
+  registradoPor: text("registrado_por").notNull(),
+  creadoEn: creadoEn(),
+}, (t) => [index("historial_beneficiarios_participante_idx").on(t.participanteId)]);
+
 /* ───────────── Personal interno (roles del proceso) ───────────── */
 
 export const rolEnum = pgEnum("rol", [
@@ -373,6 +386,37 @@ export const asistencias = pgTable(
     registradoEn: timestamp("registrado_en", { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [uniqueIndex("asistencias_unica").on(t.programacionId, t.participanteId)],
+);
+
+/**
+ * Movimiento puntual entre listas cuando una persona se presenta en otro turno
+ * después de haber cerrado la lista de destino. No modifica la sede/turno
+ * habitual del beneficiario ni elimina la inscripción o asistencia histórica
+ * de la lista de origen; esa lista simplemente deja de mostrarlo como parte
+ * de su roster activo para esa fecha.
+ */
+export const incorporacionesExcepcionales = pgTable(
+  "incorporaciones_excepcionales",
+  {
+    id: serial("id").primaryKey(),
+    destinoProgramacionId: integer("destino_programacion_id")
+      .notNull()
+      .references(() => programaciones.id, { onDelete: "cascade" }),
+    origenProgramacionId: integer("origen_programacion_id")
+      .notNull()
+      .references(() => programaciones.id, { onDelete: "cascade" }),
+    participanteId: integer("participante_id")
+      .notNull()
+      .references(() => participantes.id, { onDelete: "cascade" }),
+    motivo: varchar("motivo", { length: 300 }).notNull(),
+    registradoPor: varchar("registrado_por", { length: 150 }).notNull(),
+    creadoEn: creadoEn(),
+  },
+  (t) => [
+    uniqueIndex("incorporaciones_excepcionales_destino_participante").on(t.destinoProgramacionId, t.participanteId),
+    index("incorporaciones_excepcionales_origen_idx").on(t.origenProgramacionId),
+    index("incorporaciones_excepcionales_fecha_idx").on(t.destinoProgramacionId, t.origenProgramacionId),
+  ],
 );
 
 /* ───────────── Pre-capacitación: flujo por sesión programada ───────────── */

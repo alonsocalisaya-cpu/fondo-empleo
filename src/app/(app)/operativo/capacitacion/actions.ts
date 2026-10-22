@@ -1,11 +1,11 @@
 "use server";
 
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, ne, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import { autorizarSesion } from "@/lib/auth";
 import { puedeReabrirAsistencia } from "@/lib/permisos";
-import { asistencias, inscripciones, participantes, programaciones, type EstadoAsis } from "@/db/schema";
+import { asistencias, incorporacionesExcepcionales, inscripciones, participantes, programacionSesiones, programaciones, type EstadoAsis } from "@/db/schema";
 
 export type Resultado = { ok?: string; error?: string } | undefined;
 
@@ -123,6 +123,87 @@ export async function inscribirParticipante(_prev: Resultado, form: FormData): P
   return r.length
     ? { ok: `${p.nombres} ${p.apellidos} fue inscrito.` }
     : { error: `${p.nombres} ${p.apellidos} ya estaba inscrito.` };
+}
+
+/**
+ * Incorpora a una persona que estaba en otra lista,
+ * esté abierta o cerrada la lista de destino. Es una incorporación puntual:
+ * la inscripción habitual del beneficiario y sus asistencias anteriores quedan intactas.
+ */
+export async function incorporarExcepcional(_prev: Resultado, form: FormData): Promise<Resultado> {
+  const destinoProgramacionId = Number(form.get("programacionId"));
+  const movimiento = txt(form, "movimiento").split(":");
+  const participanteId = Number(movimiento[0]);
+  const origenProgramacionId = Number(movimiento[1]);
+  const motivo = txt(form, "motivo");
+  const perm = await autorizarSesion(destinoProgramacionId);
+  if (!perm.u) return { error: perm.error };
+  if (!Number.isSafeInteger(origenProgramacionId) || !Number.isSafeInteger(participanteId)) {
+    return { error: "Selecciona la lista de origen y la persona que se incorporará." };
+  }
+  const motivoRegistrado = motivo || "Sin motivo especificado";
+  if (motivoRegistrado.length > 300) return { error: "El motivo no puede superar 300 caracteres." };
+
+  const [destino, origen] = await Promise.all([
+    db.query.programaciones.findFirst({ where: eq(programaciones.id, destinoProgramacionId) }),
+    db.query.programaciones.findFirst({ where: eq(programaciones.id, origenProgramacionId) }),
+  ]);
+  if (!destino || !origen) return { error: "La sesión indicada ya no existe." };
+  if (destinoProgramacionId === origenProgramacionId) {
+    return { error: "La lista de origen debe ser otra sesión." };
+  }
+  if (origen.estado === "cancelada" || destino.estado === "cancelada") return { error: "No se puede incorporar una sesión cancelada." };
+
+  const [persona, origenInscrito, destinoInscrito, movimientoPrevio] = await Promise.all([
+    db.query.participantes.findFirst({ where: eq(participantes.id, participanteId) }),
+    db.query.inscripciones.findFirst({ where: and(eq(inscripciones.programacionId, origenProgramacionId), eq(inscripciones.participanteId, participanteId)) }),
+    db.query.inscripciones.findFirst({ where: and(eq(inscripciones.programacionId, destinoProgramacionId), eq(inscripciones.participanteId, participanteId)) }),
+    db.query.incorporacionesExcepcionales.findFirst({ where: and(eq(incorporacionesExcepcionales.destinoProgramacionId, destinoProgramacionId), eq(incorporacionesExcepcionales.participanteId, participanteId)) }),
+  ]);
+  if (!persona) return { error: "El beneficiario ya no existe." };
+  if (!origenInscrito) return { error: "El beneficiario no pertenece a la lista de origen seleccionada." };
+  if (destinoInscrito || movimientoPrevio) return { error: "El beneficiario ya está incorporado en esta lista." };
+
+  // Evita registrar dos veces el mismo tema, aunque las sesiones sean de sedes distintas.
+  const sesionesDestino = await db.query.programacionSesiones.findMany({
+    where: eq(programacionSesiones.programacionId, destinoProgramacionId),
+    columns: { sesionId: true },
+  });
+  const temasDestino = [destino.sesionId, ...sesionesDestino.map((x) => x.sesionId)];
+  const asistenciaMismoDia = await db
+    .select({ id: asistencias.id })
+    .from(asistencias)
+    .innerJoin(programaciones, eq(asistencias.programacionId, programaciones.id))
+    .where(and(
+      eq(asistencias.participanteId, participanteId),
+      ne(programaciones.estado, "cancelada"),
+      sql`${asistencias.estado} in ('presente', 'tarde')`,
+      sql`(
+        ${programaciones.sesionId} in (${sql.join(temasDestino.map((tema) => sql`${tema}`), sql`, `)})
+        or exists (
+          select 1 from programacion_sesiones ps
+          where ps.programacion_id = ${programaciones.id}
+            and ps.sesion_id in (${sql.join(temasDestino.map((tema) => sql`${tema}`), sql`, `)})
+        )
+      )`,
+    ))
+    .limit(1);
+  if (asistenciaMismoDia.length) return { error: "Este beneficiario ya tiene una asistencia presente o tarde registrada en otra sesión de esta fecha." };
+
+  await db.transaction(async (tx) => {
+    await tx.insert(inscripciones).values({ programacionId: destinoProgramacionId, participanteId });
+    await tx.insert(incorporacionesExcepcionales).values({
+      destinoProgramacionId,
+      origenProgramacionId,
+      participanteId,
+      motivo: motivoRegistrado,
+      registradoPor: perm.u.nombre,
+    });
+  });
+
+  revalidatePath(`/operativo/capacitacion/${destinoProgramacionId}`);
+  revalidatePath("/", "layout");
+  return { ok: `${persona.nombres} ${persona.apellidos} fue incorporado excepcionalmente a esta lista.` };
 }
 
 export async function quitarInscripcion(form: FormData) {

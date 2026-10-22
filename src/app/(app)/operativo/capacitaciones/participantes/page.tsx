@@ -113,8 +113,8 @@ export default async function Participantes({ searchParams }: PageProps<"/operat
           </select>
         </div>
         <div className="w-full sm:w-80">
-          <label htmlFor="q" className="etiqueta">Nombre, DNI, correo o teléfono</label>
-          <input id="q" name="q" defaultValue={q} placeholder="Buscar beneficiario…" className="campo" />
+          <label htmlFor="q" className="etiqueta">DNI, nombres o apellidos</label>
+          <input id="q" name="q" defaultValue={q} placeholder="Escribe el DNI, nombres o apellidos…" className="campo" />
         </div>
         <button className="btn-oscuro">Filtrar</button>
         <Link href="/operativo/capacitaciones/participantes" className="btn-secundario">Limpiar filtros</Link>

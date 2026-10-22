@@ -7,6 +7,7 @@ import { participantes, sedes } from "@/db/schema";
 import { exigir } from "@/lib/auth";
 import { Encabezado } from "@/components/ui";
 import FormEditar from "./FormEditar";
+import HistorialBeneficiario from "@/components/HistorialBeneficiario";
 
 export const metadata = { title: "Editar beneficiario" };
 
@@ -21,5 +22,6 @@ export default async function EditarBeneficiario({ params }: { params: Promise<{
   return <>
     <Encabezado antetitulo={<><Link href="/operativo/capacitaciones/participantes" className="hover:underline">Beneficiarios</Link> › Editar</>} titulo={`${b.nombres} ${b.apellidos}`} />
     <FormEditar beneficiario={b} sedes={listaSedes.map((s) => ({ id: s.id, nombre: `${s.nombre}${s.activa ? "" : " (inactiva)"}` }))} />
+    <HistorialBeneficiario participanteId={id} />
   </>;
 }

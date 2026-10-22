@@ -7,7 +7,7 @@ import { db } from "@/db";
 import { inscribirBeneficiarios } from "@/db/inscribir";
 import { borrarArchivo } from "./archivos";
 import { hoyISO } from "./fechas";
-import { documentos, equipos, insumos, participantes, programaciones, sedes, estructuras, sedeHorarios } from "@/db/schema";
+import { documentos, equipos, historialBeneficiarios, insumos, participantes, programaciones, sedes, estructuras, sedeHorarios } from "@/db/schema";
 
 export type Res = { ok?: string; error?: string } | undefined;
 const txt = (f: FormData, k: string) => String(f.get(k) ?? "").trim() || null;
@@ -121,7 +121,20 @@ export async function cambiarSedeTurno(_p: Res, f: FormData): Promise<Res> {
 
   const hoy = hoyISO();
   const n = await db.transaction(async (tx) => {
+    const [sedeAnterior, sedeNueva] = await Promise.all([
+      antes.sedeId ? tx.query.sedes.findFirst({ where: eq(sedes.id, antes.sedeId) }) : undefined,
+      sedeId ? tx.query.sedes.findFirst({ where: eq(sedes.id, sedeId) }) : undefined,
+    ]);
     await tx.update(participantes).set({ sedeId, turno }).where(eq(participantes.id, id));
+    await tx.insert(historialBeneficiarios).values({
+      participanteId: id,
+      sedeAnterior: sedeAnterior?.nombre ?? null,
+      sedeNueva: sedeNueva?.nombre ?? null,
+      turnoAnterior: antes.turno,
+      turnoNuevo: turno,
+      usuarioId: perm.u.id,
+      registradoPor: perm.u.nombre,
+    });
     await tx.execute(sql`
       delete from inscripciones i
       using programaciones p

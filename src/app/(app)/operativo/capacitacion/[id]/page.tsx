@@ -2,16 +2,16 @@ import { exigirUsuario, puedeVerSesion } from "@/lib/auth";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
-import { and, eq, or, sql, asc } from "drizzle-orm";
+import { and, asc, eq, ne, or, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { asistencias, inscripciones, programaciones, participantes, sedes } from "@/db/schema";
+import { asistencias, incorporacionesExcepcionales, inscripciones, programaciones, participantes, sedes } from "@/db/schema";
 import { conRuta, ruta, combinadas } from "@/lib/consultas";
 import { fechaCorta, hora, TURNO_LABEL } from "@/lib/fechas";
 import { ChipEstado, Encabezado, nombreCompleto } from "@/components/ui";
 import ListaAsistencia, { type FilaAsistencia } from "./ListaAsistencia";
 import { reabrirLista } from "../actions";
 import { examenDe, examenes } from "@/lib/preparacion";
-import { puedeReabrirAsistencia } from "@/lib/permisos";
+import { puede, puedeReabrirAsistencia } from "@/lib/permisos";
 
 export const metadata = { title: "Lista de asistencia" };
 
@@ -22,8 +22,12 @@ export default async function PaginaAsistencia({ params }: PageProps<"/operativo
   const u = await exigirUsuario();
   if (!p || !puedeVerSesion(u, p)) notFound();
 
-  const [ins, asis, ex, pendientes] = await Promise.all([
-    db.query.inscripciones.findMany({ where: eq(inscripciones.programacionId, id), with: { participante: true } }),
+  const puedeIncorporar = puede(u.roles, "capacitaciones", "editar");
+  const [ins, asis, ex, pendientes, excepcionales, movimientos] = await Promise.all([
+    db.query.inscripciones.findMany({
+      where: eq(inscripciones.programacionId, id),
+      with: { participante: true },
+    }),
     db.select().from(asistencias).where(eq(asistencias.programacionId, id)),
     examenes([p.sesionId, ...p.combinadas.map((c) => c.sesionId)]),
     db.select({ participanteId: participantes.id, nombres: participantes.nombres, apellidos: participantes.apellidos, dni: participantes.dni })
@@ -33,10 +37,49 @@ export default async function PaginaAsistencia({ params }: PageProps<"/operativo
         p.sede.nombre === "Paucarpata virtual" ? undefined : or(eq(participantes.turno, "ambos"), eq(participantes.turno, p.turno)),
         sql`not exists (select 1 from inscripciones i where i.programacion_id = ${id} and i.participante_id = ${participantes.id})`,
       )).orderBy(asc(participantes.apellidos), asc(participantes.nombres)),
+    puedeIncorporar
+      ? db
+          .select({
+            participanteId: participantes.id,
+            nombres: participantes.nombres,
+            apellidos: participantes.apellidos,
+            dni: participantes.dni,
+            origenProgramacionId: programaciones.id,
+            origenFecha: programaciones.fecha,
+            origenTurno: programaciones.turno,
+            origenHoraInicio: programaciones.horaInicio,
+            origenHoraFin: programaciones.horaFin,
+            origenSede: sedes.nombre,
+          })
+          .from(inscripciones)
+          .innerJoin(programaciones, eq(inscripciones.programacionId, programaciones.id))
+          .innerJoin(participantes, eq(inscripciones.participanteId, participantes.id))
+          .innerJoin(sedes, eq(programaciones.sedeId, sedes.id))
+          .where(and(
+            ne(programaciones.id, id),
+            ne(programaciones.estado, "cancelada"),
+            sql`not exists (select 1 from inscripciones i2 where i2.programacion_id = ${id} and i2.participante_id = ${participantes.id})`,
+            sql`not exists (select 1 from incorporaciones_excepcionales x where x.destino_programacion_id = ${id} and x.participante_id = ${participantes.id})`,
+          ))
+          .orderBy(asc(participantes.apellidos), asc(participantes.nombres), asc(programaciones.horaInicio))
+      : [],
+    db
+      .select({
+        participanteId: incorporacionesExcepcionales.participanteId,
+        sedeOrigen: sedes.nombre,
+      })
+      .from(incorporacionesExcepcionales)
+      .innerJoin(programaciones, eq(incorporacionesExcepcionales.origenProgramacionId, programaciones.id))
+      .innerJoin(sedes, eq(programaciones.sedeId, sedes.id))
+      .where(eq(incorporacionesExcepcionales.destinoProgramacionId, id)),
   ]);
   // ¿Esta sesión tiene examen? (1ra sesión → entrada, última → salida)
   const examen = examenDe(p, ex);
   const porParticipante = new Map(asis.map((a) => [a.participanteId, a]));
+  const movimientoPorParticipante = new Map(movimientos.map((x) => [
+    x.participanteId,
+    x.sedeOrigen,
+  ]));
 
   const filas: FilaAsistencia[] = ins
     .map((i) => {
@@ -49,6 +92,8 @@ export default async function PaginaAsistencia({ params }: PageProps<"/operativo
         estado: a?.estado ?? null,
         horaIngreso: a?.horaIngreso ?? null,
         observacion: a?.observacion ?? null,
+        detalleExcepcional: movimientoPorParticipante.has(i.participanteId) ? "Excepcional" : null,
+        sedeOrigenExcepcional: movimientoPorParticipante.get(i.participanteId) ?? null,
         notaEntrada: a?.notaEntrada ?? null,
         notaSalida: a?.notaSalida ?? null,
       };
@@ -100,7 +145,16 @@ export default async function PaginaAsistencia({ params }: PageProps<"/operativo
         {p.listaCerrada && <span className="text-texto-2">{puedeReabrirAsistencia(u.roles) ? "Esta lista está cerrada. Para modificarla, usa «Reabrir lista»." : "Esta lista está cerrada. Solo el administrador o Gestión Documental pueden reabrirla para permitir cambios."}</span>}
       </div>
 
-      <ListaAsistencia key={p.id} programacionId={p.id} filas={filas} pendientes={pendientes} cerrada={p.listaCerrada} examen={examen} />
+      <ListaAsistencia
+        key={p.id}
+        programacionId={p.id}
+        filas={filas}
+        pendientes={pendientes}
+        cerrada={p.listaCerrada}
+        examen={examen}
+        excepcionales={excepcionales}
+        puedeIncorporarExcepcional={puedeIncorporar}
+      />
     </>
   );
 }

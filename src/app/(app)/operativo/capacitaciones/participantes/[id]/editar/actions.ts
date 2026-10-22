@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/db";
 import { inscribirBeneficiarios } from "@/db/inscribir";
-import { participantes, sedes } from "@/db/schema";
+import { historialBeneficiarios, participantes, sedes } from "@/db/schema";
 import { permitir } from "@/lib/auth";
 import { hoyISO } from "@/lib/fechas";
 
@@ -34,6 +34,19 @@ export async function editarBeneficiario(_prev: { error?: string } | undefined, 
       if (!b) throw new Error("El beneficiario ya no existe.");
       await tx.update(participantes).set({ dni: dni || null, nombres, apellidos, sedeId, email: email || null, telefono: telefono || null, area: area || null }).where(eq(participantes.id, id));
       if (b.sedeId !== sedeId) {
+        const [anterior, nueva] = await Promise.all([
+          b.sedeId ? tx.query.sedes.findFirst({ where: eq(sedes.id, b.sedeId) }) : undefined,
+          sedeId ? tx.query.sedes.findFirst({ where: eq(sedes.id, sedeId) }) : undefined,
+        ]);
+        await tx.insert(historialBeneficiarios).values({
+          participanteId: id,
+          sedeAnterior: anterior?.nombre ?? null,
+          sedeNueva: nueva?.nombre ?? null,
+          turnoAnterior: b.turno,
+          turnoNuevo: b.turno ?? "",
+          usuarioId: permiso.u.id,
+          registradoPor: permiso.u.nombre,
+        });
         const hoy = hoyISO();
         await tx.execute(sql`delete from inscripciones i using programaciones p
           where i.programacion_id = p.id and i.participante_id = ${id} and p.fecha >= ${hoy}

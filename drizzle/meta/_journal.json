@@ -190,6 +190,20 @@
       "when": 1792515486668,
       "tag": "0026_participantes_dni_opcional",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1792692446713,
+      "tag": "0027_incorporacion_excepcional",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1792703356862,
+      "tag": "0028_historial_beneficiarios",
+      "breakpoints": true
     }
   ]
 }

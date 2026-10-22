@@ -1,7 +1,7 @@
 "use client";
 
 import { startTransition, useActionState, useEffect, useRef, useState, type FormEvent } from "react";
-import { guardarAsistencia, inscribirParticipante, quitarInscripcion } from "../actions";
+import { guardarAsistencia, incorporarExcepcional, inscribirParticipante, quitarInscripcion } from "../actions";
 import { useConfirmacion } from "@/components/Confirmacion";
 
 type Estado = "presente" | "tarde" | "ausente" | "justificado";
@@ -16,9 +16,24 @@ export type FilaAsistencia = {
   observacion: string | null;
   notaEntrada: number | null;
   notaSalida: number | null;
+  detalleExcepcional: string | null;
+  sedeOrigenExcepcional: string | null;
 };
 
 type Examen = "entrada" | "salida" | "ambos" | null;
+
+type CandidatoExcepcional = {
+  participanteId: number;
+  nombres: string;
+  apellidos: string;
+  dni: string | null;
+  origenProgramacionId: number;
+  origenFecha: string;
+  origenTurno: string;
+  origenHoraInicio: string;
+  origenHoraFin: string;
+  origenSede: string;
+};
 
 const OPCIONES: { v: Estado; txt: string; on: string }[] = [
   { v: "presente", txt: "Presente", on: "bg-[#166534] text-white" },
@@ -41,6 +56,8 @@ export default function ListaAsistencia({
   pendientes,
   cerrada,
   examen = null,
+  excepcionales = [],
+  puedeIncorporarExcepcional = false,
 }: {
   programacionId: number;
   filas: FilaAsistencia[];
@@ -48,6 +65,8 @@ export default function ListaAsistencia({
   cerrada: boolean;
   /** Si la sesión tiene examen, se piden las notas en la misma lista */
   examen?: Examen;
+  excepcionales?: CandidatoExcepcional[];
+  puedeIncorporarExcepcional?: boolean;
 }) {
   const notas: { k: "ne" | "ns"; campo: "notaEntrada" | "notaSalida"; t: string }[] = [
     ...(examen === "entrada" || examen === "ambos" ? [{ k: "ne" as const, campo: "notaEntrada" as const, t: "Nota entrada" }] : []),
@@ -58,9 +77,11 @@ export default function ListaAsistencia({
   );
   const [buscar, setBuscar] = useState("");
   const [buscarPendiente, setBuscarPendiente] = useState("");
+  const [buscarExcepcional, setBuscarExcepcional] = useState("");
   const { confirmar, dialogo } = useConfirmacion();
   const [res, guardar, guardando] = useActionState(guardarAsistencia, undefined);
   const [resIns, inscribir, inscribiendo] = useActionState(inscribirParticipante, undefined);
+  const [resExc, incorporar, incorporando] = useActionState(incorporarExcepcional, undefined);
 
   const formIns = useRef<HTMLFormElement>(null);
   useEffect(() => {
@@ -109,6 +130,11 @@ export default function ListaAsistencia({
     `${f.nombre} ${f.dni}`.toLowerCase().includes(buscar.trim().toLowerCase());
   const normalizar = (texto: string) => texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   const pendientesVisibles = pendientes.filter((p) => normalizar(buscarPendiente).trim().split(/\s+/).every((palabra) => normalizar(`${p.nombres} ${p.apellidos} ${p.dni}`).includes(palabra)));
+  const personasExcepcionales = Array.from(new Map(excepcionales.map((p) => [p.participanteId, p])).values());
+  const excepcionalesVisibles = personasExcepcionales.filter((p) => {
+    const q = normalizar(buscarExcepcional).trim();
+    return !q || normalizar(`${p.nombres} ${p.apellidos} ${p.dni ?? ""} ${p.origenSede}`).includes(q);
+  });
 
   return (
     <>
@@ -182,7 +208,15 @@ export default function ListaAsistencia({
                       {i + 1}
                       <input type="hidden" name="participanteId" value={f.participanteId} />
                     </td>
-                    <td className="td font-medium">{f.nombre}</td>
+                    <td className="td font-medium">
+                      <span>{f.nombre}</span>
+                      {f.detalleExcepcional && (
+                        <div className="mt-1 flex flex-wrap gap-1.5">
+                          <span className="rounded-full border border-[#f5d08a] bg-[#fff4d6] px-2 py-0.5 text-xs font-semibold text-[#92400e]">{f.detalleExcepcional}</span>
+                          {f.sedeOrigenExcepcional && <span className="rounded-full border border-[#bfdbfe] bg-[#eff6ff] px-2 py-0.5 text-xs font-semibold text-[#1e40af]">De: {f.sedeOrigenExcepcional}</span>}
+                        </div>
+                      )}
+                    </td>
                     <td className="td text-[#334155]">{f.dni}</td>
                     <td className="td text-[#334155]">{f.area ?? "—"}</td>
                     <td className="td">
@@ -278,6 +312,44 @@ export default function ListaAsistencia({
             <button disabled={inscribiendo} className="btn-secundario shrink-0 px-4 py-2 text-sm">+ Agregar a la lista</button>
           </form>)}{!pendientesVisibles.length && <p className="rounded-lg bg-[#f5f8fc] p-4 text-sm text-texto-2">{pendientes.length ? "No se encontraron beneficiarios con esa búsqueda." : "Todos los beneficiarios de esta sede y turno están inscritos."}</p>}</div>
           <Aviso r={resIns} />
+        </section>
+      )}
+      {puedeIncorporarExcepcional && (
+        <section className="card space-y-4 border-[#f5d08a] bg-[#fffaf0] px-5 py-4">
+          <div>
+            <h2 className="font-semibold text-marino">Incorporación excepcional</h2>
+            <p className="mt-1 max-w-3xl text-xs leading-relaxed text-texto-2">
+              Usa esta opción si una persona de otra sede o de otro turno, inscrita en cualquier lista, asistirá a este turno. Se registrará el movimiento
+              y la persona aparecerá identificada como «Excepcional» únicamente en esta lista. Las otras listas conservarán sus registros.
+            </p>
+          </div>
+          {excepcionales.length ? (
+            <form action={incorporar} className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] md:items-end">
+              <input type="hidden" name="programacionId" value={programacionId} />
+              <label className="etiqueta" htmlFor="incorporacion-persona">
+                Buscar persona, DNI o sede
+                <input id="buscar-incorporacion" value={buscarExcepcional} onChange={(e) => setBuscarExcepcional(e.target.value)} placeholder="Escribe para filtrar…" className="campo mt-1" />
+                <span className="mt-1 block text-xs font-normal text-texto-2">{excepcionalesVisibles.length} de {personasExcepcionales.length} personas disponibles</span>
+                <span className="mt-2 block font-semibold">Persona y sede</span>
+                <select id="incorporacion-persona" name="movimiento" required className="campo mt-1">
+                  <option value="">Selecciona una persona…</option>
+                  {excepcionalesVisibles.map((p) => (
+                    <option key={`${p.participanteId}-${p.origenProgramacionId}`} value={`${p.participanteId}:${p.origenProgramacionId}`}>
+                      {p.apellidos}, {p.nombres} · {p.origenSede}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="etiqueta" htmlFor="incorporacion-motivo">
+                Motivo (opcional)
+                <input id="incorporacion-motivo" name="motivo" maxLength={300} className="campo mt-1" placeholder="Ej. Cambio autorizado de turno" />
+              </label>
+              <button disabled={incorporando} className="btn-primario whitespace-nowrap">{incorporando ? "Incorporando…" : "Incorporar a esta lista"}</button>
+            </form>
+          ) : (
+            <p className="rounded-lg bg-white/70 px-4 py-3 text-sm text-texto-2">No hay personas inscritas en otra lista disponibles para incorporar.</p>
+          )}
+          <Aviso r={resExc} />
         </section>
       )}
       {!cerrada && (

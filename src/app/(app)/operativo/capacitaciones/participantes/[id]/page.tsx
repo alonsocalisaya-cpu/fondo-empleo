@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
-import { eq, inArray } from "drizzle-orm";
+import { desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
-import { asistencias, inscripciones, participantes, programaciones, sedes } from "@/db/schema";
+import { asistencias, historialBeneficiarios, inscripciones, participantes, programaciones, sedes } from "@/db/schema";
 import { exigirUsuario } from "@/lib/auth";
 import { conRuta, combinadas, ruta } from "@/lib/consultas";
 import { fechaCorta, hora, hoyISO, TURNO_LABEL } from "@/lib/fechas";
@@ -32,6 +32,9 @@ export default async function DetalleBeneficiario({ params }: PageProps<"/operat
   const b = await db.query.participantes.findFirst({ where: eq(participantes.id, id) });
   if (!b) notFound();
   const sedeB = b.sedeId ? await db.query.sedes.findFirst({ where: eq(sedes.id, b.sedeId) }) : null;
+  const cambios = await db.select().from(historialBeneficiarios)
+    .where(eq(historialBeneficiarios.participanteId, id))
+    .orderBy(desc(historialBeneficiarios.creadoEn), desc(historialBeneficiarios.id));
 
   const ins = await db.select({ pid: inscripciones.programacionId }).from(inscripciones).where(eq(inscripciones.participanteId, id));
   const [asis, progs] = await Promise.all([
@@ -106,6 +109,21 @@ export default async function DetalleBeneficiario({ params }: PageProps<"/operat
             <span className="text-xs text-niebla">{d}</span>
           </div>
         ))}
+      </section>
+
+      <section className="card overflow-x-auto">
+        <h2 className="px-5 pt-4 text-[15px] font-semibold text-marino">Historial de cambios de sede y turno</h2>
+        {cambios.length === 0 ? <Vacio>Aún no hay cambios registrados. El historial se guarda a partir de la habilitación de esta función.</Vacio> : (
+          <table className="mt-2 w-full min-w-[720px] text-sm">
+            <thead><tr><th className="th">Fecha y hora</th><th className="th">Antes</th><th className="th">Después</th><th className="th">Realizado por</th></tr></thead>
+            <tbody>{cambios.map((c) => <tr key={c.id}>
+              <td className="td">{c.creadoEn.toLocaleString("es-PE", { timeZone: "America/Lima", dateStyle: "short", timeStyle: "short" })}</td>
+              <td className="td">{c.sedeAnterior ?? "Sin sede"}<span className="block text-xs text-texto-2">Turno {c.turnoAnterior ? TURNO[c.turnoAnterior] ?? c.turnoAnterior : "Sin asignar"}</span></td>
+              <td className="td">{c.sedeNueva ?? "Sin sede"}<span className="block text-xs text-texto-2">Turno {TURNO[c.turnoNuevo] ?? c.turnoNuevo}</span></td>
+              <td className="td">{c.registradoPor}</td>
+            </tr>)}</tbody>
+          </table>
+        )}
       </section>
 
       <section aria-label="Resumen" className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
