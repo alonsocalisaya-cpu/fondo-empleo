@@ -44,7 +44,7 @@ export default async function TotalesSede({ sp, u }: { sp: Record<string, string
   const numero = (n: number) => n.toLocaleString("es-PE");
   const ddmm = (fecha: string) => `${fecha.slice(8, 10)}/${fecha.slice(5, 7)}`;
   const borde = "border-b border-r border-[#d8dee7]";
-  const cabecera = `${borde} bg-[#f2f4f5] text-[#646b73]`;
+  const cabecera = `${borde} bg-[#f2f4f5] text-texto-2`;
   const color = (pct: number | null, anterior: number | null | undefined) => pct == null || anterior == null || pct === anterior ? "bg-[#e5e7eb] text-[#4b5563]" : pct > anterior ? "bg-[#dcfce7] text-[#166534]" : "bg-[#fee2e2] text-[#991b1b]";
   return <>
     <form key={`${region}:${desde}:${hasta}`} className="card flex flex-wrap items-end gap-3 p-4">

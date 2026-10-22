@@ -70,7 +70,7 @@ export default async function SeguimientoExamenes({ searchParams }: { searchPara
     return { ...b, notas, entrada: promedioNotas(notas.filter((n) => n.tipo === "entrada").map((n) => n.nota)), salida: promedioNotas(notas.filter((n) => n.tipo === "salida").map((n) => n.nota)) };
   });
   const borde = "border-b border-r border-[#d8dee7]";
-  const cabecera = `${borde} bg-[#f2f4f5] text-[#646b73]`;
+  const cabecera = `${borde} bg-[#f2f4f5] text-texto-2`;
   return <>
     <Encabezado antetitulo="Operativo" titulo="Registro de notas" />
     <form key={`${sede?.id}:${actividad}:${desde}:${hasta}:${q}`} className="card flex flex-wrap items-end gap-3 rounded-xl border-[#d8dee7] p-4 shadow-sm">

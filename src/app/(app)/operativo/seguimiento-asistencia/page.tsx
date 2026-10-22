@@ -64,7 +64,7 @@ export default async function SeguimientoAsistencia({ searchParams }: { searchPa
   const principales: MarcaSeguimiento[] = ["presente", "tarde", "justificado", "ausente"];
   const fechaColumna = (fecha: string) => `${fecha.slice(8, 10)}/${fecha.slice(5, 7)}`;
   const borde = "border-b border-r border-[#d8dee7]";
-  const cabecera = `${borde} bg-[#f2f4f5] text-[#646b73]`;
+  const cabecera = `${borde} bg-[#f2f4f5] text-texto-2`;
   return <>
     <Encabezado antetitulo="Operativo" titulo="Seguimiento de asistencia" />
     <PestanasSeguimiento vista="beneficiarios" />
