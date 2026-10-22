@@ -1,11 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import SubirArchivos from "@/components/SubirArchivos";
 import { ENTREGABLES } from "@/lib/entregables";
 import { tamanoLegible, type Seccion } from "@/lib/documentos";
+import { type CarpetaEntregable, versionCarpeta } from "@/lib/carpetas-entregables";
+import { crearCarpetaEntregable } from "./carpetas-actions";
 
-type Archivo = { id: number; nombre: string; href: string; tamano: number | null; seccion: Seccion; tipo: string };
+type Archivo = { id: number; nombre: string; href: string; tamano: number | null; seccion: Seccion; tipo: string; version?: string | null };
 const FORMATOS: Record<string, string> = {
   diapositivas: "PDF, PowerPoint, Word, Excel, imágenes o ZIP",
   talleres: "PDF, PowerPoint, Word, Excel, imágenes o ZIP",
@@ -23,8 +25,24 @@ const ICONOS: Record<string, string> = {
   video: "M3 5h18v14H3z M10 9l5 3-5 3z",
 };
 
-export default function EntregablesPost({ programacionId, examen, archivos }: { programacionId: number; examen: "entrada" | "salida" | "ambos" | null; archivos: Archivo[] }) {
+export default function EntregablesPost({ programacionId, examen, archivos, carpetas: iniciales = [], soloAdicionales = false }: { programacionId: number; examen: "entrada" | "salida" | "ambos" | null; archivos: Archivo[]; carpetas?: CarpetaEntregable[]; soloAdicionales?: boolean }) {
   const [nuevos, setNuevos] = useState<Record<string, number>>({});
+  const [agregadas, setAgregadas] = useState<CarpetaEntregable[]>([]);
+  const carpetas = [...iniciales, ...agregadas.filter((c) => !iniciales.some((i) => i.id === c.id))];
+  const [mostrarCarpeta, setMostrarCarpeta] = useState(false);
+  const [nombreCarpeta, setNombreCarpeta] = useState("");
+  const [descripcionCarpeta, setDescripcionCarpeta] = useState("");
+  const [errorCarpeta, setErrorCarpeta] = useState("");
+  const [creando, crear] = useTransition();
+  const agregarCarpeta = () => crear(async () => {
+    setErrorCarpeta("");
+    try {
+      const resultado = await crearCarpetaEntregable(programacionId, nombreCarpeta, descripcionCarpeta);
+      if (resultado.error) { setErrorCarpeta(resultado.error); return; }
+      if (resultado.carpeta) setAgregadas((lista) => [...lista, resultado.carpeta]);
+      setNombreCarpeta(""); setDescripcionCarpeta(""); setMostrarCarpeta(false);
+    } catch { setErrorCarpeta("No se pudo crear la carpeta. Inténtalo nuevamente."); }
+  });
   const categorias = ENTREGABLES.filter((c) => c.seccion !== "viaticos");
   const tiposExamen = (["entrada", "salida"] as const).filter((tipo) => examen === tipo || examen === "ambos");
   const cantidad = (seccion: string) => archivos.filter((a) => a.seccion === seccion).length + (seccion === "examen" ? tiposExamen.reduce((n, tipo) => n + (nuevos[`examen_${tipo}`] ?? 0), 0) : nuevos[seccion] ?? 0);
@@ -35,6 +53,7 @@ export default function EntregablesPost({ programacionId, examen, archivos }: { 
   const completadas = aplicables.filter((c) => completa(c.seccion)).length;
   const porcentaje = Math.round(completadas * 100 / aplicables.length);
   return <div className="space-y-4">
+    {!soloAdicionales && <>
     <div className="rounded-xl border border-borde bg-[#f3f6fa] p-4">
       <div className="flex flex-wrap items-center justify-between gap-2"><div><h4 className="font-semibold text-marino">Documentos de la sesión</h4><p className="mt-1 text-xs text-texto-2">Agrega los archivos en la categoría que corresponde. Los talleres o prácticas son opcionales.</p></div><span aria-live="polite" className="rounded-full bg-white px-3 py-1.5 text-sm font-semibold text-marino">{completadas} de {aplicables.length} categorías obligatorias adjuntadas</span></div>
       <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[#dde5ee]" role="progressbar" aria-label="Categorías con archivos adjuntos" aria-valuenow={porcentaje} aria-valuemin={0} aria-valuemax={100}><div className="h-full rounded-full bg-[#16a34a] transition-[width]" style={{ width: `${porcentaje}%` }} /></div>
@@ -58,6 +77,24 @@ export default function EntregablesPost({ programacionId, examen, archivos }: { 
         </div>
       </section>;
     })}</div>
-    <label className="flex items-start gap-3 rounded-xl border border-borde bg-[#f3f6fa] p-4 text-sm"><input type="checkbox" name="entregablesConfirmados" value="si" required className="mt-0.5 size-5 shrink-0 accent-marino" /><span>Confirmo que adjunté los documentos entregables que corresponden a esta capacitación.</span></label>
+    </>}
+    <section className="space-y-3" aria-label="Carpetas adicionales de entregables">
+      <div className="flex flex-wrap items-center justify-between gap-3"><div><h4 className="font-semibold text-marino">Carpetas adicionales</h4><p className="text-xs text-texto-2">Opcionales, solo para esta sesión. No afectan los requisitos de cierre.</p></div><button type="button" className="btn-secundario" onClick={() => setMostrarCarpeta(true)}>+ Agregar carpeta de entregables</button></div>
+      {mostrarCarpeta && <div className="space-y-3 rounded-xl border border-borde bg-[#f8fafc] p-4">
+        <label className="etiqueta">Nombre de la carpeta<input value={nombreCarpeta} onChange={(e) => setNombreCarpeta(e.target.value)} maxLength={80} className="campo mt-1" placeholder="Ej. Material complementario" disabled={creando} /></label>
+        <label className="etiqueta">Descripción (opcional)<textarea value={descripcionCarpeta} onChange={(e) => setDescripcionCarpeta(e.target.value)} maxLength={300} className="campo mt-1" disabled={creando} /></label>
+        {errorCarpeta && <p role="alert" className="text-sm text-[#991b1b]">{errorCarpeta}</p>}
+        <div className="flex gap-2"><button type="button" disabled={creando || !nombreCarpeta.trim()} onClick={agregarCarpeta} className="btn-oscuro">{creando ? "Creando…" : "Crear carpeta"}</button><button type="button" disabled={creando} onClick={() => { setMostrarCarpeta(false); setErrorCarpeta(""); }} className="btn-secundario">Cancelar</button></div>
+      </div>}
+      {carpetas.map((carpeta) => {
+        const lista = archivos.filter((a) => a.seccion === "adicionales" && a.version === versionCarpeta(carpeta.id));
+        return <section key={carpeta.id} className="space-y-3 rounded-xl border border-borde bg-white p-4">
+          <div><h5 className="font-semibold text-marino">📁 {carpeta.nombre} <span className="text-xs font-normal text-texto-2">· Opcional</span></h5>{carpeta.descripcion && <p className="mt-1 whitespace-pre-wrap text-sm text-texto-2">{carpeta.descripcion}</p>}</div>
+          <SubirArchivos destacado programacionId={programacionId} tipo="otro" seccion="adicionales" version={versionCarpeta(carpeta.id)} etiqueta={`Archivos de ${carpeta.nombre}`} />
+          {lista.length > 0 && <ul className="space-y-2">{lista.map((a) => <li key={a.id} className="flex items-center justify-between gap-3 rounded-lg border border-borde p-3"><span className="min-w-0 break-words text-sm">{a.nombre}{a.tamano != null && <small className="block text-texto-2">{tamanoLegible(a.tamano)}</small>}</span><a href={a.href} className="enlace text-xs" aria-label={`Descargar ${a.nombre}`}>Descargar</a></li>)}</ul>}
+        </section>;
+      })}
+    </section>
+    {!soloAdicionales && <label className="flex items-start gap-3 rounded-xl border border-borde bg-[#f3f6fa] p-4 text-sm"><input type="checkbox" name="entregablesConfirmados" value="si" required className="mt-0.5 size-5 shrink-0 accent-marino" /><span>Confirmo que adjunté los documentos entregables que corresponden a esta capacitación.</span></label>}
   </div>;
 }

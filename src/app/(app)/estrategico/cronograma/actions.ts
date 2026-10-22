@@ -12,6 +12,7 @@ import { borrarArchivo } from "@/lib/archivos";
 import { inscribirBeneficiarios } from "@/db/inscribir";
 import { documentos, fichaItems, preparaciones, programacionSesiones, programaciones, sedes, sesiones, modulos, actividades, componentes, type EstadoProg } from "@/db/schema";
 import { turnoDesdeHora } from "@/lib/fechas";
+import { retornoCronograma } from "@/lib/retorno-cronograma";
 
 export type EstadoForm = { error?: string } | undefined;
 
@@ -85,7 +86,7 @@ export async function guardarProgramacion(_prev: EstadoForm, form: FormData): Pr
   await inscribirBeneficiarios([guardado]);
 
   revalidatePath("/", "layout");
-  redirect(`/estrategico/cronograma?desde=${fecha}`);
+  redirect(retornoCronograma(form.get("volver"), `/estrategico/cronograma?desde=${fecha}`));
 }
 
 export async function eliminarProgramacion(form: FormData) {

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { carpetasEntregables, versionCarpeta } from "@/lib/carpetas-entregables";
 import { CHEQUEOS_EQUIPO, TIPOS_EQUIPO } from "@/lib/inventario";
 import { TIPO_DOC, enlaceDoc, seccionDe, tamanoLegible } from "@/lib/documentos";
 import { notFound } from "next/navigation";
@@ -842,7 +843,7 @@ function Campos({ clave, e }: { clave: string; e: Exp }) {
         </>
       );
     case "escanear_subir":
-      return <EntregablesPost programacionId={e.p.id} examen={e.ctx.examen} archivos={e.docs.map((d) => ({ id: d.id, nombre: d.nombre, href: enlaceDoc(d), tamano: d.tamano, seccion: seccionDe(d), tipo: d.tipo }))} />;
+      return <EntregablesPost programacionId={e.p.id} examen={e.ctx.examen} carpetas={carpetasEntregables(e.ctx.pasos.carpetas_entregables)} archivos={e.docs.map((d) => ({ id: d.id, nombre: d.nombre, href: enlaceDoc(d), tamano: d.tamano, seccion: seccionDe(d), tipo: d.tipo, version: d.version }))} />;
     case "imprimir_ficha_digital":
       return (
         <p className="text-[13px]">
@@ -1229,7 +1230,7 @@ function Tarjeta({ s, n, e, est, u, href }: { s: EstadoItem; n: number; e: Exp; 
 
         {s.estado === "hecho" && reg && (
           <div className="flex flex-col gap-3">
-            <RegistroCompleto programacionId={e.p.id} clave={s.clave} registro={reg} programaViajeDisponible={e.ctx.pasos.programa_viaje?.corresponde === true && e.ctx.pasos.programa_viaje?.programaGenerado === true} archivos={e.docs.map((d) => ({ id: d.id, nombre: d.nombre, href: enlaceDoc(d), seccion: seccionDe(d) }))} liquidacion={e.liquidacion.guardada ? e.liquidacion.datos : undefined} />
+            <RegistroCompleto programacionId={e.p.id} clave={s.clave} registro={reg} programaViajeDisponible={e.ctx.pasos.programa_viaje?.corresponde === true && e.ctx.pasos.programa_viaje?.programaGenerado === true} archivos={e.docs.map((d) => ({ id: d.id, nombre: d.nombre, href: enlaceDoc(d), seccion: d.seccion === "adicionales" ? `Carpeta · ${carpetasEntregables(e.ctx.pasos.carpetas_entregables).find((c) => versionCarpeta(c.id) === d.version)?.nombre ?? "Adicionales"}` : seccionDe(d) }))} liquidacion={e.liquidacion.guardada ? e.liquidacion.datos : undefined} />
             <Resumen clave={s.clave} r={reg} />
             {(mio || u.roles.includes("jefe_proyecto")) && <form action={deshacerPaso}>
               <input type="hidden" name="programacionId" value={e.p.id} />
@@ -1253,6 +1254,9 @@ function Tarjeta({ s, n, e, est, u, href }: { s: EstadoItem; n: number; e: Exp; 
           </a>
         )}
         {s.clave === "alistar_material" && <FichaPrimera e={e} editable={est.get("llenar_ficha") !== "hecho" && puedeEditarFicha(u.roles)} />}
+        {s.clave === "escanear_subir" && s.estado === "hecho" && mio && (
+          <EntregablesPost soloAdicionales programacionId={e.p.id} examen={e.ctx.examen} carpetas={carpetasEntregables(e.ctx.pasos.carpetas_entregables)} archivos={e.docs.filter((d) => d.programacionId === e.p.id).map((d) => ({ id: d.id, nombre: d.nombre, href: enlaceDoc(d), tamano: d.tamano, seccion: seccionDe(d), tipo: d.tipo, version: d.version }))} />
+        )}
         {s.estado === "disponible" && !mio && (
           <p className="rounded-md bg-[#eef1f5] px-3 py-2 text-xs text-texto-2">Pendiente · la registra {s.roles.map((r) => ROLES[r]).join(" o ")}.</p>
         )}

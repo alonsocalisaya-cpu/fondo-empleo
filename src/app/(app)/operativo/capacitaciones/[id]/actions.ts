@@ -610,7 +610,7 @@ export async function registrarPaso(_prev: Res, f: FormData): Promise<Res> {
       if (faltantes.length) return { error: `Faltan archivos en: ${faltantes.join(", ")}.` };
       if (ctx.examen === "ambos" && (!["examen_entrada", "examen_salida"].every((tipo) => docs.some((d) => d.tipo === tipo)))) return { error: "Adjunta los exámenes de entrada y de salida." };
       await asociarDocs(docsSubidos(f), id, { subidoPor: por });
-      const categorias = [...requeridos, "talleres"];
+      const categorias = [...requeridos, "talleres", "adicionales"];
       reg.archivos = docs.filter((d) => categorias.includes(seccionDe(d))).length;
       reg.confirmados = true;
       reg.categorias = categorias.filter((seccion) => docs.some((d) => seccionDe(d) === seccion));

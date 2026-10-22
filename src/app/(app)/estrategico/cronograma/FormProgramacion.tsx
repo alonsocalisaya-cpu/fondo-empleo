@@ -31,6 +31,7 @@ export default function FormProgramacion({
   capacitadores,
   asistentes,
   estados,
+  volver,
 }: {
   valores: ValoresProgramacion;
   estructuras: Opcion[];
@@ -39,6 +40,7 @@ export default function FormProgramacion({
   capacitadores: Opcion[];
   asistentes: Opcion[];
   estados: { valor: string; txt: string }[];
+  volver?: string;
 }) {
   const [estado, accion, enviando] = useActionState(guardarProgramacion, undefined);
   const v = valores;
@@ -67,6 +69,7 @@ export default function FormProgramacion({
   return (
     <form onSubmit={enviar} className="card flex max-w-4xl flex-col gap-5 p-6">
       {v.id && <input type="hidden" name="id" value={v.id} />}
+      {volver && <input type="hidden" name="volver" value={volver} />}
 
       {estado?.error && (
         <p role="alert" className="rounded-lg border border-[#fecaca] bg-[#fef2f2] px-4 py-3 text-sm text-[#991b1b]">
@@ -215,7 +218,7 @@ export default function FormProgramacion({
         <button disabled={enviando} className="btn-primario">
           {enviando ? "Guardando…" : v.id ? "Guardar cambios" : "Programar sesión"}
         </button>
-        <Link href="/estrategico/cronograma" className="btn-secundario">Cancelar</Link>
+        <Link href={volver ?? "/estrategico/cronograma"} className="btn-secundario">Cancelar</Link>
       </div>
     </form>
   );

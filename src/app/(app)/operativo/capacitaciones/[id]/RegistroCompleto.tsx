@@ -10,7 +10,7 @@ type Archivo = { id: number; nombre: string; href: string; seccion: string };
 
 const CATEGORIAS_ARCHIVO: Record<string, string> = {
   diapositivas: "Diapositivas", talleres: "Talleres o prácticas", lista_asistencia: "Lista de asistencia",
-  examen: "Exámenes", fotos: "Fotos", video: "Videos", viaticos: "Viáticos",
+  examen: "Exámenes", fotos: "Fotos", video: "Videos", viaticos: "Viáticos", adicionales: "Entregables adicionales",
 };
 
 function ArchivosRegistrados({ documentos }: { documentos: Archivo[] }) {
@@ -24,7 +24,7 @@ function ArchivosRegistrados({ documentos }: { documentos: Archivo[] }) {
       const lista = documentos.filter((a) => a.seccion === seccion);
       return <div key={seccion} className="grid overflow-hidden rounded-xl border border-[#dce4ee] md:grid-cols-[12rem_minmax(0,1fr)]">
         <div className="space-y-2 bg-[#f5f8fc] p-4">
-          <h5 className="text-sm font-semibold text-marino">{CATEGORIAS_ARCHIVO[seccion] ?? "Documentos"}</h5>
+          <h5 className="text-sm font-semibold text-marino">{CATEGORIAS_ARCHIVO[seccion] ?? seccion}</h5>
           <p className="text-xs text-texto-2">{lista.length} {lista.length === 1 ? "archivo adjunto" : "archivos adjuntos"}</p>
           <span className="inline-flex items-center gap-1.5 rounded-full bg-[#e3f5e9] px-2.5 py-1 text-[11px] font-medium text-[#166534]"><span aria-hidden="true">✓</span> Registrado</span>
         </div>
@@ -102,7 +102,7 @@ export default async function RegistroCompleto({ clave, registro: r, archivos, l
   const documentos = archivos.filter((a) => {
     if (tieneLista && a.seccion === "lista_asistencia") return true;
     if (clave === "imprimir_ficha" && a.seccion === "examen") return true;
-    if (clave === "escanear_subir") return Array.isArray(r.documentos) ? r.documentos.includes(a.id) : ["diapositivas", "talleres", "lista_asistencia", "examen", "fotos", "video"].includes(a.seccion);
+    if (clave === "escanear_subir") return a.seccion === "adicionales" || a.seccion.startsWith("Carpeta · ") || (Array.isArray(r.documentos) ? r.documentos.includes(a.id) : ["diapositivas", "talleres", "lista_asistencia", "examen", "fotos", "video"].includes(a.seccion));
     if (clave === "rendir_viaticos") return a.seccion === "viaticos";
     return false;
   });

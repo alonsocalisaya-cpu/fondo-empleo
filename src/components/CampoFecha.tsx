@@ -20,8 +20,14 @@ function aISO(latina: string) {
 /** Campo de fecha en formato peruano; internamente envía YYYY-MM-DD. */
 export default function CampoFecha({ id, name, value, required = false, onChange }: { id: string; name: string; value?: string; required?: boolean; onChange?: (iso: string) => void }) {
   const [texto, setTexto] = useState(aLatina(value ?? ""));
+  const [valorAnterior, setValorAnterior] = useState(value);
   const calendario = useRef<HTMLInputElement>(null);
   const campoTexto = useRef<HTMLInputElement>(null);
+  // Sincroniza ajustes externos del rango conservando el mismo input y su selector nativo.
+  if (value !== valorAnterior) {
+    setValorAnterior(value);
+    setTexto(aLatina(value ?? ""));
+  }
   return <>
     <input type="hidden" name={name} value={aISO(texto)} />
     <div className="relative flex items-center gap-1">

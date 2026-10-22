@@ -1,12 +1,14 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { documentos, programaciones, sesiones, tipoDocumentoEnum } from "@/db/schema";
+import { documentos, preparaciones, programaciones, sesiones, tipoDocumentoEnum } from "@/db/schema";
 import { borrarArchivo, CARPETA_ARCHIVOS, validarArchivo } from "@/lib/archivos";
 import { ErrorTransferencia, guardarContinuo } from "@/lib/archivo-continuo";
 import { carpetaDe } from "@/lib/carpetas";
 import { esSeccion, seccionDe } from "@/lib/documentos";
 import { autorizarSesion, permitir } from "@/lib/auth";
 import { validarEntregable } from "@/lib/entregables";
+import { carpetasEntregables, versionCarpeta } from "@/lib/carpetas-entregables";
+import { nombreCarpeta } from "@/lib/carpetas";
 
 type Tipo = (typeof tipoDocumentoEnum.enumValues)[number];
 export const runtime = "nodejs";
@@ -50,10 +52,17 @@ export async function POST(req: Request) {
   const seccion = programacionId ? seccionDe({ tipo, seccion: esSeccion(pedida) ? pedida : null, nombre: archivo.name }) : null;
   const errorEntregable = validarEntregable(seccion, archivo.name);
   if (errorEntregable) return Response.json({ error: errorEntregable }, { status: 400 });
+  let subcarpeta: string | null = null;
+  if (seccion === "adicionales") {
+    const preparacion = await db.query.preparaciones.findFirst({ where: eq(preparaciones.programacionId, programacionId!) });
+    const carpeta = carpetasEntregables(preparacion?.pasos.carpetas_entregables).find((c) => versionCarpeta(c.id) === version);
+    if (!carpeta || tipo !== "otro") return Response.json({ error: "Selecciona una carpeta válida de esta sesión." }, { status: 400 });
+    subcarpeta = `${nombreCarpeta(carpeta.nombre, 25)}-${carpeta.id}`;
+  } else if (version?.startsWith("carpeta_")) return Response.json({ error: "Carpeta no válida para esta categoría." }, { status: 400 });
   let guardado: { archivo: string; tamano: number } | undefined;
   try {
     guardado = await guardarContinuo({ cuerpo: req.body, nombre: archivo.name, tamano,
-      carpeta: await carpetaDe(sesionId, programacionId, seccion), base: CARPETA_ARCHIVOS, signal: req.signal });
+      carpeta: (await carpetaDe(sesionId, programacionId, seccion)) + (subcarpeta ? `/${subcarpeta}` : ""), base: CARPETA_ARCHIVOS, signal: req.signal });
     const [d] = await db
       .insert(documentos)
       .values({ nombre, tipo, sesionId, programacionId, version, seccion, ...guardado })
