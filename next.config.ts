@@ -10,7 +10,7 @@ const ipsLocales = Object.values(networkInterfaces())
 const nextConfig: NextConfig = {
   // OneDrive puede bloquear la caché predeterminada `.next`. Mantener salidas
   // separadas evita que el desarrollo con Turbopack pise el build de producción.
-  distDir: process.env.NODE_ENV === "development" ? "build-dev" : "build",
+  distDir: process.env.NODE_ENV === "development" ? "build-dev" : "build-prod",
 
   // En modo desarrollo, Next.js solo acepta "localhost"; así también acepta la IP del equipo.
   allowedDevOrigins: ipsLocales,
