@@ -1,3 +1,4 @@
+import EnlaceFormatoAsistencia from "@/components/EnlaceFormatoAsistencia";
 import Link from "next/link";
 import { carpetasEntregables, versionCarpeta } from "@/lib/carpetas-entregables";
 import { CHEQUEOS_EQUIPO, TIPOS_EQUIPO } from "@/lib/inventario";
@@ -420,7 +421,7 @@ function Campos({ clave, e }: { clave: string; e: Exp }) {
               key={d.id}
               href={enlaceDoc(d)}
               target={d.archivo ? undefined : "_blank"}
-              rel="noreferrer"
+
               className="btn-secundario flex-col items-start gap-0 py-1.5 text-[13px]"
             >
               <span>⬇ {d.nombre}</span>
@@ -499,7 +500,7 @@ function Campos({ clave, e }: { clave: string; e: Exp }) {
     case "imprimir_ficha":
       return (
         <div className="flex flex-col gap-3 text-[13px]">
-          <Link href={`/operativo/capacitacion/${e.p.id}/imprimir`} target="_blank" className="btn-oscuro inline-flex w-full items-center justify-center gap-3 px-6 py-4 text-base font-bold shadow-md sm:w-fit">🖨 Ver / imprimir lista de asistencia</Link>
+          <EnlaceFormatoAsistencia href={`/operativo/capacitacion/${e.p.id}/imprimir`} target="_blank" className="btn-oscuro inline-flex w-full items-center justify-center gap-3 px-6 py-4 text-base font-bold shadow-md sm:w-fit">🖨 Ver / imprimir lista de asistencia</EnlaceFormatoAsistencia>
           <label className="flex items-start gap-2 text-sm"><input type="checkbox" name="listaImpresa" value="si" required className="mt-1" />Confirmo que ya imprimí la lista de asistencia de esta sesión.</label>
           {e.ctx.examen && <fieldset className="grid gap-3 rounded-lg border border-borde p-3 sm:grid-cols-2">
             <legend className="px-1 font-semibold text-marino">Copias de exámenes impresas</legend>

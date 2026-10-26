@@ -143,7 +143,7 @@ export async function datosLista(programacionIds: number[]) {
         fecha: fechaDMA(p.fecha),
         sesion: [p.sesion.nombre, ...combinadas(p)].join(" + "),
         personas,
-        enBlanco: 5,
+        enBlanco: 3,
       } satisfies HojaLista,
     };
   });

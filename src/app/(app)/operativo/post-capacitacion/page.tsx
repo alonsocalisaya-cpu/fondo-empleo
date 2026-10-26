@@ -1,3 +1,4 @@
+import EnlaceFormatoAsistencia from "@/components/EnlaceFormatoAsistencia";
 import { exigirUsuario, soloSesionesDe } from "@/lib/auth";
 import Link from "next/link";
 import { connection } from "next/server";
@@ -132,7 +133,7 @@ export default async function PostCapacitacion({ searchParams }: PageProps<"/ope
                   </div>
                   <div className="flex gap-4 text-[13px]">
                     <Link href={`/operativo/capacitacion/${p.id}`} className="enlace">Ver lista</Link>
-                    <Link href={`/operativo/capacitacion/${p.id}/imprimir`} className="enlace">Imprimir lista</Link>
+                    <EnlaceFormatoAsistencia href={`/operativo/capacitacion/${p.id}/imprimir`} className="enlace">Imprimir lista</EnlaceFormatoAsistencia>
                     <Link href={`/operativo/capacitaciones/${p.id}/ficha`} className="enlace">Ficha</Link>
                   </div>
                 </article>

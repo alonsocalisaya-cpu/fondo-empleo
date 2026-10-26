@@ -24,7 +24,7 @@ const ESTADO: Record<Estado, { txt: string; color: string; fondo: string }> = {
   reprogramar: { txt: "Por reprogramar", color: "#dc2626", fondo: "#fef2f2" },
 };
 /** Colores para distinguir sedes (se asignan en orden alfabético). */
-const PALETA = ["#0e7490", "#c2410c", "#7c3aed", "#15803d", "#b91c1c", "#1d4ed8", "#a16207", "#be185d", "#475569"];
+const PALETA = ["#475569", "#1d4ed8", "#c2410c", "#15803d", "#7c3aed", "#a16207", "#b91c1c", "#0e7490", "#44403c"];
 const DIAS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 const MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
 const COLUMNAS = [
@@ -50,7 +50,7 @@ export default async function Calendario({ searchParams }: PageProps<"/calendari
   const personaPedida = typeof sp.persona === "string" ? sp.persona : Number(sp.capacitador) > 0 ? `cap:${Number(sp.capacitador)}` : Number(sp.asistente) > 0 ? `asis:${Number(sp.asistente)}` : "";
   const componentePedido = Number(sp.componente) || 0;
   const estado = (["pre", "post", "cerrada", "reprogramar"] as const).find((x) => x === sp.estado) ?? null;
-  const colorPor = sp.color === "sede" ? "sede" : "estado";
+  const colorPor = sp.color === "estado" ? "estado" : "sede";
   const vista = sp.vista === "tabla" ? "tabla" : "mes";
   const enlaceSesion = (id: number) => `/operativo/capacitaciones/${id}`;
   const orden = COLUMNAS.find((c) => c.clave === sp.orden)?.clave ?? "fecha";
@@ -107,7 +107,12 @@ export default async function Calendario({ searchParams }: PageProps<"/calendari
     );
   const ctxs = await contextosDe(lista);
 
-  const colorSede = new Map(sedes.map((s, i) => [s.id, PALETA[i % PALETA.length]]));
+  const regionPuno = estructuras.find((r) => r.nombre.trim().toLocaleLowerCase("es") === "puno")?.id;
+  let indiceColor = 1;
+  const colorSede = new Map(sedes.map((s) => [
+    s.id,
+    s.estructuraId === regionPuno ? PALETA[0] : PALETA[1 + (indiceColor++ - 1) % (PALETA.length - 1)],
+  ]));
   const eventos = lista
     .map((p) => {
       const ctx = ctxs.get(p.id)!;
@@ -143,7 +148,7 @@ export default async function Calendario({ searchParams }: PageProps<"/calendari
   const dias: string[] = [];
   for (let d = desde; d <= hasta; d = sumarDias(d, 1)) dias.push(d);
 
-  const params = { region, sede, persona, componente, estado: estado ?? "", color: colorPor === "sede" ? "sede" : "", vista, desde: rangoPersonalizado ? inicio : "", hasta: rangoPersonalizado ? fin : "", orden, direccion };
+  const params = { region, sede, persona, componente, estado: estado ?? "", color: colorPor, vista, desde: rangoPersonalizado ? inicio : "", hasta: rangoPersonalizado ? fin : "", orden, direccion };
   const duracion = Math.round((Date.parse(fin) - Date.parse(inicio)) / 86400000) + 1;
   const url = (extra: Record<string, string | number>) =>
     `/calendario?${new URLSearchParams(
@@ -297,7 +302,7 @@ export default async function Calendario({ searchParams }: PageProps<"/calendari
                   </span>
                   {evs.length > 0 && <span className="text-[10px] text-texto-2">{evs.length} ses.</span>}
                 </div>
-                {evs.slice(0, 4).map(({ p, est, pct }) => {
+                {evs.map(({ p, est, pct }) => {
                   const c = colorPor === "sede" ? colorSede.get(p.sedeId) ?? "#475569" : ESTADO[est].color;
                   return (
                     <Link
@@ -305,7 +310,7 @@ export default async function Calendario({ searchParams }: PageProps<"/calendari
                       href={enlaceSesion(p.id)}
                       title={`${hora(p.horaInicio)}–${hora(p.horaFin)} · ${p.sesion.codigo} ${p.sesion.nombre}\n${p.sede.nombre} · ${nombreCompleto(p.capacitador)}\n${ESTADO[est].txt} · ${pct}% del flujo`}
                       className={`block rounded border-l-[3px] px-2 py-1.5 text-xs transition-shadow hover:shadow ${fuera ? "opacity-50" : ""}`}
-                      style={{ borderLeftColor: c, background: colorPor === "sede" ? `${c}14` : ESTADO[est].fondo }}
+                      style={{ borderLeftColor: c, background: colorPor === "sede" ? `${c}26` : ESTADO[est].fondo }}
                     >
                       <span className="block font-semibold" style={{ color: c }}>{hora(p.horaInicio)}–{hora(p.horaFin)} · {p.sede.nombre}</span>
                       <span className="mt-0.5 block text-texto">{[p.sesion.nombre, ...combinadas(p)].join(" + ")}</span>
@@ -313,11 +318,6 @@ export default async function Calendario({ searchParams }: PageProps<"/calendari
                     </Link>
                   );
                 })}
-                {evs.length > 4 && (
-                  <Link href={`/operativo/capacitaciones?desde=${d}&hasta=${d}`} className="px-1 text-[11px] font-semibold text-marino hover:underline">
-                    +{evs.length - 4} más
-                  </Link>
-                )}
               </div>
             );
           })}

@@ -1,3 +1,4 @@
+import EnlaceFormatoAsistencia from "@/components/EnlaceFormatoAsistencia";
 import type { PasoRegistro } from "@/db/schema";
 import { recursosDe } from "@/lib/recursos-sesion";
 import type { DatosLiquidacion } from "@/lib/liquidacion";
@@ -121,7 +122,7 @@ export default async function RegistroCompleto({ clave, registro: r, archivos, l
       <h4 className="font-semibold text-marino">Lista de asistencia</h4>
       <div className="flex flex-wrap gap-2">
         <a href={`/operativo/capacitacion/${programacionId}/excel`} className="btn-secundario px-5 py-3 text-base font-semibold">⬇ Descargar lista de asistencia (Excel)</a>
-        <a href={`/operativo/capacitacion/${programacionId}/imprimir`} target="_blank" rel="noreferrer" className="btn-oscuro px-6 py-4 text-base font-bold shadow-md">🖨 Ver / imprimir lista de asistencia</a>
+        <EnlaceFormatoAsistencia href={`/operativo/capacitacion/${programacionId}/imprimir`} target="_blank" className="btn-oscuro px-6 py-4 text-base font-bold shadow-md">🖨 Ver / imprimir lista de asistencia</EnlaceFormatoAsistencia>
       </div>
     </section>}
     {esRecurso && <>

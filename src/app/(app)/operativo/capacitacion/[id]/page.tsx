@@ -1,8 +1,9 @@
+import EnlaceFormatoAsistencia from "@/components/EnlaceFormatoAsistencia";
 import { exigirUsuario, puedeVerSesion } from "@/lib/auth";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
-import { and, asc, eq, ne, or, sql } from "drizzle-orm";
+import { and, asc, eq, ne, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { asistencias, incorporacionesExcepcionales, inscripciones, programaciones, participantes, sedes } from "@/db/schema";
 import { conRuta, ruta, combinadas } from "@/lib/consultas";
@@ -33,8 +34,7 @@ export default async function PaginaAsistencia({ params }: PageProps<"/operativo
     db.select({ participanteId: participantes.id, nombres: participantes.nombres, apellidos: participantes.apellidos, dni: participantes.dni })
       .from(participantes).innerJoin(sedes, eq(participantes.sedeId, sedes.id))
       .where(and(
-        eq(sedes.estructuraId, p.sede.estructuraId), eq(sedes.grupo, p.sede.grupo),
-        p.sede.nombre === "Paucarpata virtual" ? undefined : or(eq(participantes.turno, "ambos"), eq(participantes.turno, p.turno)),
+        eq(participantes.sedeId, p.sedeId),
         sql`not exists (select 1 from inscripciones i where i.programacion_id = ${id} and i.participante_id = ${participantes.id})`,
       )).orderBy(asc(participantes.apellidos), asc(participantes.nombres)),
     puedeIncorporar
@@ -113,7 +113,7 @@ export default async function PaginaAsistencia({ params }: PageProps<"/operativo
         titulo="Lista de asistencia"
         acciones={
           <>
-            <Link href={`/operativo/capacitacion/${p.id}/imprimir`} className="btn-secundario">🖨 Imprimir (formato oficial)</Link>
+            <EnlaceFormatoAsistencia href={`/operativo/capacitacion/${p.id}/imprimir`} className="btn-secundario">🖨 Imprimir (formato oficial)</EnlaceFormatoAsistencia>
             <a href={`/operativo/capacitacion/${p.id}/excel`} className="btn-secundario">⬇ Excel</a>
             {p.listaCerrada && puedeReabrirAsistencia(u.roles) && (
               <form action={reabrirLista}>

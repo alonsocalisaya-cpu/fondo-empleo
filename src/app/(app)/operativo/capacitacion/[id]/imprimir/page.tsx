@@ -1,5 +1,4 @@
 import { exigirUsuario, puedeVerSesion } from "@/lib/auth";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { eq } from "drizzle-orm";
@@ -7,6 +6,7 @@ import { db } from "@/db";
 import { programaciones } from "@/db/schema";
 import { LISTA_PROYECTO, LISTA_TITULO, datosLista } from "@/lib/lista-asistencia";
 import BotonImprimir from "@/components/BotonImprimir";
+import VolverFormatoAsistencia from "@/components/VolverFormatoAsistencia";
 
 export const metadata = { title: "Lista de asistencia" };
 
@@ -32,7 +32,7 @@ export default async function Imprimir({ params }: PageProps<"/operativo/capacit
           }
         }`}</style>
       <div className="flex flex-wrap justify-between gap-2 print:hidden">
-        <Link href={`/operativo/capacitacion/${id}`} className="btn-secundario">← Volver</Link>
+        <VolverFormatoAsistencia destino={`/operativo/capacitaciones/${id}`} />
         <div className="flex gap-2">
           <a href={`/operativo/capacitacion/${id}/excel`} className="btn-secundario">⬇ Formato oficial Excel</a>
           <BotonImprimir />
