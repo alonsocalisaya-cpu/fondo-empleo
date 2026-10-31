@@ -114,12 +114,6 @@ export default function ListaAsistencia({
       return;
     }
     const datos = new FormData(e.currentTarget, boton);
-    if (boton?.name === "cerrar" && !await confirmar({
-      titulo: "Guardar y cerrar lista",
-      mensaje: "Una vez cerrada la lista, ya no podrás editar la asistencia de esta sesión.",
-      detalle: "Solo el administrador o el encargado de Gestión Documental podrán reabrirla para permitir cambios. Los beneficiarios sin marcar se guardarán como ausentes.",
-      aceptar: "Sí, guardar y cerrar",
-    })) return;
     startTransition(() => guardar(datos));
   };
 
@@ -180,7 +174,6 @@ export default function ListaAsistencia({
                 Marcar sin marcar como presentes
               </button>
               <button disabled={guardando} className="btn-oscuro py-2">{guardando ? "Guardando…" : "Guardar"}</button>
-              <button disabled={guardando} name="cerrar" value="1" className="btn-primario py-2">Guardar y cerrar lista</button>
             </div>
           )}
         </div>

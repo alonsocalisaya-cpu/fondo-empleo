@@ -207,7 +207,7 @@ export default function Sidebar({
             </button>
             <ul id={`menu-${area.id}`} hidden={!abierta} className="my-1.5 ml-[22px] flex flex-col gap-1 border-l-2 border-white/70 pl-3">
               {area.bloques.map((b) => {
-                const actual = [b.href, ...(b.tambien ?? [])].some((h) => path === h || path.startsWith(`${h}/`));
+                const actual = [b.href, ...(b.tambien ?? [])].some((h) => path === h || path.startsWith(`${h}/`)) && !area.bloques.some((otro) => otro.href !== b.href && otro.href.startsWith(`${b.href}/`) && (path === otro.href || path.startsWith(`${otro.href}/`)));
                 return (
                   <li key={b.href}>
                     <Link

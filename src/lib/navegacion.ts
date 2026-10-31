@@ -22,6 +22,7 @@ export const AREAS: Area[] = [
         label: "Capacitaciones",
         tambien: ["/operativo/capacitacion", "/operativo/post-capacitacion"],
       },
+      { href: "/operativo/capacitaciones/participantes", label: "Beneficiarios" },
       { href: "/operativo/seguimiento-asistencia", label: "Seguimiento de asistencia" },
       { href: "/operativo/seguimiento-examenes", label: "Registro de notas" },
     ],

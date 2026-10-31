@@ -19,12 +19,11 @@ const nota = (f: FormData, k: string) => {
   return Number.isFinite(n) && n >= 0 && n <= 20 ? Math.round(n * 10) / 10 : NaN;
 };
 
-/** Guarda (o actualiza) la asistencia de todos los inscritos. Opcionalmente cierra la lista. */
+/** Guarda o actualiza la asistencia de todos los inscritos. */
 export async function guardarAsistencia(_prev: Resultado, form: FormData): Promise<Resultado> {
   const programacionId = Number(form.get("programacionId"));
   const perm = await autorizarSesion(programacionId);
   if (!perm.u) return { error: perm.error };
-  const cerrar = form.get("cerrar") === "1";
 
   const prog = await db.query.programaciones.findFirst({ where: eq(programaciones.id, programacionId) });
   if (!prog) return { error: "La programación no existe." };
@@ -47,10 +46,6 @@ export async function guardarAsistencia(_prev: Resultado, form: FormData): Promi
   const malas = filas.filter((f) => Number.isNaN(f.notaEntrada) || Number.isNaN(f.notaSalida));
   if (malas.length) return { error: `Hay ${malas.length} nota(s) no válidas: deben ser números de 0 a 20.` };
 
-  if (cerrar && filas.length < ids.length) {
-    return { error: `Faltan ${ids.length - filas.length} participantes por marcar antes de cerrar la lista.` };
-  }
-
   await db.transaction(async (tx) => {
     if (filas.length) {
       await tx
@@ -67,16 +62,11 @@ export async function guardarAsistencia(_prev: Resultado, form: FormData): Promi
           },
         });
     }
-    if (cerrar) {
-      await tx
-        .update(programaciones)
-        .set({ listaCerrada: true, estado: prog.estado === "cancelada" ? "cancelada" : "finalizada" })
-        .where(eq(programaciones.id, programacionId));
-    }
+
   });
 
   revalidatePath("/", "layout");
-  return { ok: cerrar ? "Lista guardada y cerrada." : `Asistencia guardada (${filas.length} registros).` };
+  return { ok: `Asistencia guardada (${filas.length} registros).` };
 }
 
 export async function reabrirLista(form: FormData) {

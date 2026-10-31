@@ -17,7 +17,7 @@ import "./ficha.css";
 export const metadata = { title: "Ficha de capacitación" };
 const texto = (valor: unknown) => valor == null || valor === "" ? "—" : typeof valor === "boolean" ? valor ? "Sí" : "No" : String(valor);
 
-export default async function Ficha({ params }: PageProps<"/operativo/capacitaciones/[id]/ficha">) {
+export default async function Ficha({ params, searchParams }: PageProps<"/operativo/capacitaciones/[id]/ficha">) {
   await connection();
   const e = await cargarExpediente(Number((await params).id));
   if (!e || !puedeVerSesion(await exigirUsuario(), e.p)) notFound();
@@ -86,7 +86,7 @@ export default async function Ficha({ params }: PageProps<"/operativo/capacitaci
   };
 
   return <div className="mx-auto w-full max-w-4xl">
-    <div className="mb-5 flex flex-wrap justify-between gap-3 print:hidden"><Link href={`/operativo/capacitaciones/${p.id}`} className="btn-secundario">← Volver a actividades de la sesión</Link><BotonImprimir /></div>
+    <div className="mb-5 flex flex-wrap justify-between gap-3 print:hidden"><Link href={(await searchParams).volver === "aprobar_cierre" ? `/operativo/capacitaciones/${p.id}?paso=aprobar_cierre#foco` : `/operativo/capacitaciones/${p.id}`} className="btn-secundario">← Volver a actividades de la sesión</Link><BotonImprimir /></div>
     <FichaResumen ficha={ficha} />
   </div>;
 }
