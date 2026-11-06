@@ -826,8 +826,9 @@ export async function deshacerPaso(f: FormData) {
   if (clave === "gestionar_carpeta" || clave === "rendir_viaticos" || clave === "aprobar_cierre") {
     await db.update(programaciones).set({ estado: "confirmada" }).where(eq(programaciones.id, id));
   }
-  if (clave === "escanear_subir" || clave === "enviar_examenes") {
-    const tipos = clave === "escanear_subir" ? ["evidencia"] : ["examen_entrada", "examen_salida"];
+  // Deshacer entregables solo retira su confirmación; conserva todos los adjuntos.
+  if (clave === "enviar_examenes") {
+    const tipos = ["examen_entrada", "examen_salida"];
     const borrados = await db
       .delete(documentos)
       .where(and(eq(documentos.programacionId, id), inArray(documentos.tipo, tipos as ("evidencia" | "examen_entrada" | "examen_salida")[])))

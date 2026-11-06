@@ -1,5 +1,5 @@
 // Estructura del menú principal: 3 áreas y sus bloques.
-export type Bloque = { href: string; label: string; /** otras rutas que también marcan este bloque como activo */ tambien?: string[] };
+export type Bloque = { href: string; label: string; grupo?: string; /** otras rutas que también marcan este bloque como activo */ tambien?: string[] };
 export type Area = { id: "estrategico" | "operativo" | "soporte"; label: string; bloques: Bloque[] };
 
 export const AREAS: Area[] = [
@@ -20,11 +20,14 @@ export const AREAS: Area[] = [
       {
         href: "/operativo/capacitaciones",
         label: "Capacitaciones",
+        grupo: "Gestión de Capacitaciones",
         tambien: ["/operativo/capacitacion", "/operativo/post-capacitacion"],
       },
       { href: "/operativo/capacitaciones/participantes", label: "Beneficiarios" },
-      { href: "/operativo/seguimiento-asistencia", label: "Seguimiento de asistencia" },
-      { href: "/operativo/seguimiento-examenes", label: "Registro de notas" },
+      { href: "/operativo/planes-mejora", label: "Planes de Mejora" },
+      { href: "/operativo/asistencia-tecnica", label: "Asistencia Técnica" },
+      { href: "/operativo/seguimiento-asistencia", label: "Seguimiento de asistencia", grupo: "Gestión de Capacitaciones" },
+      { href: "/operativo/seguimiento-examenes", label: "Registro de notas", grupo: "Gestión de Capacitaciones" },
     ],
   },
   {

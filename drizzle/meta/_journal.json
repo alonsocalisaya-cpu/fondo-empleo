@@ -204,6 +204,20 @@
       "when": 1792703356862,
       "tag": "0028_historial_beneficiarios",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1793985719119,
+      "tag": "0029_planes_mejora",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1793988622535,
+      "tag": "0030_problemas_mejora",
+      "breakpoints": true
     }
   ]
 }

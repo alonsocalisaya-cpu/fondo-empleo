@@ -1,4 +1,5 @@
 import "server-only";
+import { inicioSemana, sumarDias } from "./fechas";
 import { and, gte, inArray, lte, ne, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { asistencias, inscripciones, preparaciones, programaciones } from "@/db/schema";
@@ -106,6 +107,27 @@ export async function calcularIndicadores(desde: string, hasta: string, hoy: str
   const mAsis = new Map(asis.map((a) => [a.id, a]));
   const mIns = new Map(ins.map((i) => [i.id, i.n]));
 
+  // Una fila por sede y tres columnas por semana. Los inscritos se suman por sesión.
+  const semanas: string[] = [];
+  const finReal = hasta < hoy ? hasta : hoy;
+  for (let semana = inicioSemana(desde); semana <= finReal; semana = sumarDias(semana, 7)) semanas.push(semana);
+  type CeldaSemanal = { programados: number; asistentes: number; sesiones: number; registradas: number };
+  const semanal = new Map<number, { id: number; nombre: string; semanas: Record<string, CeldaSemanal> }>();
+  for (const p of progs) {
+    if (p.fecha > finReal) continue;
+    let fila = semanal.get(p.sede.id);
+    if (!fila) {
+      fila = { id: p.sede.id, nombre: p.sede.nombre, semanas: {} };
+      semanal.set(p.sede.id, fila);
+    }
+    const semana = inicioSemana(p.fecha);
+    const celda = fila.semanas[semana] ??= { programados: 0, asistentes: 0, sesiones: 0, registradas: 0 };
+    celda.programados += mFicha.get(p.id)?.programados ?? mIns.get(p.id) ?? 0;
+    celda.asistentes += mAsis.get(p.id)?.asistieron ?? 0;
+    celda.sesiones++;
+    if (mAsis.has(p.id)) celda.registradas++;
+  }
+
   const total = vacio();
   const grupos = {
     sede: new Map<string, { id: number; nombre: string; acum: Acum }>(),
@@ -163,6 +185,7 @@ export async function calcularIndicadores(desde: string, hasta: string, hoy: str
       .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
 
   return {
+    asistenciaSemanal: { semanas, filas: [...semanal.values()].sort((a, b) => a.nombre.localeCompare(b.nombre, "es")) },
     total: resultado(total),
     porSede: lista("sede"),
     porComponente: lista("componente"),

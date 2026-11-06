@@ -206,10 +206,12 @@ export default function Sidebar({
               </svg>
             </button>
             <ul id={`menu-${area.id}`} hidden={!abierta} className="my-1.5 ml-[22px] flex flex-col gap-1 border-l-2 border-white/70 pl-3">
-              {area.bloques.map((b) => {
-                const actual = [b.href, ...(b.tambien ?? [])].some((h) => path === h || path.startsWith(`${h}/`)) && !area.bloques.some((otro) => otro.href !== b.href && otro.href.startsWith(`${b.href}/`) && (path === otro.href || path.startsWith(`${otro.href}/`)));
-                return (
-                  <li key={b.href}>
+              {[...new Set(area.bloques.map((b) => b.grupo ?? b.href))].map((clave) => {
+                const bloques = area.bloques.filter((b) => (b.grupo ?? b.href) === clave);
+                const grupo = bloques[0].grupo;
+                const enlaces = bloques.map((b) => {
+                  const actual = [b.href, ...(b.tambien ?? [])].some((h) => path === h || path.startsWith(`${h}/`)) && !area.bloques.some((otro) => otro.href !== b.href && otro.href.startsWith(`${b.href}/`) && (path === otro.href || path.startsWith(`${otro.href}/`)));
+                  return <li key={b.href}>
                     <Link
                       href={b.href}
                       aria-current={actual ? "page" : undefined}
@@ -221,8 +223,16 @@ export default function Sidebar({
                       {b.label}
                       <Cargando />
                     </Link>
+                  </li>;
+                });
+                return grupo ? (
+                  <li key={clave}>
+                    <details open className="group/gestion">
+                      <summary className="cursor-pointer rounded-md bg-white px-3 py-2 text-sm font-semibold text-marino shadow-sm hover:bg-[#f1f4f3]">{grupo}</summary>
+                      <ul className="my-1.5 ml-3 flex flex-col gap-1 border-l-2 border-white/70 pl-2">{enlaces}</ul>
+                    </details>
                   </li>
-                );
+                ) : enlaces;
               })}
             </ul>
           </div>

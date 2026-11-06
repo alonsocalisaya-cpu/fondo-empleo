@@ -78,6 +78,7 @@ export const capacitadores = pgTable("capacitadores", {
 });
 
 export const participantes = pgTable("participantes", {
+  problemasMejora: jsonb("problemas_mejora").$type<{ texto: string }[]>(),
   id: serial("id").primaryKey(),
   nombres: varchar("nombres", { length: 100 }).notNull(),
   apellidos: varchar("apellidos", { length: 100 }).notNull(),
@@ -737,3 +738,15 @@ export type TipoEquipo = (typeof tipoEquipoEnum.enumValues)[number];
 export type CategoriaInsumo = (typeof categoriaInsumoEnum.enumValues)[number];
 
 export type RolUsuario = (typeof rolUsuarioEnum.enumValues)[number];
+
+/** Versiones inmutables del plan de cada beneficiario. */
+export const planesMejoraVersiones = pgTable("planes_mejora_versiones", {
+  id: serial("id").primaryKey(),
+  participanteId: integer("participante_id").notNull().references(() => participantes.id, { onDelete: "restrict" }),
+  numero: integer("numero").notNull(),
+  cambios: text("cambios").notNull(),
+  problemas: jsonb("problemas").$type<{ texto: string; estado?: string }[]>().notNull(),
+  archivos: jsonb("archivos").$type<{ nombre: string; ruta: string; tipo: "plan" | "escaneado" | "editable" | "evidencia" }[]>().notNull(),
+  autorId: integer("autor_id").notNull().references(() => usuarios.id, { onDelete: "restrict" }),
+  creadoEn: creadoEn(),
+}, (t) => [uniqueIndex("planes_mejora_version_unique").on(t.participanteId, t.numero)]);

@@ -1,10 +1,11 @@
+import { Fragment } from "react";
 import Link from "next/link";
 import { connection } from "next/server";
 import { ne, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { accionesCorrectivas } from "@/db/schema";
 import { calcularIndicadores, METAS, semaforo, type Resultado, type Semaforo } from "@/lib/indicadores";
-import { fechaCorta, hoyISO, sumarDias } from "@/lib/fechas";
+import { fechaCorta, hoyISO, sumarDias, inicioSemana } from "@/lib/fechas";
 import { Encabezado, Vacio } from "@/components/ui";
 import CampoFecha from "@/components/CampoFecha";
 
@@ -119,7 +120,7 @@ export default async function Indicadores({ searchParams }: PageProps<"/estrateg
   const sp = await searchParams;
   const hoy = hoyISO();
   const hasta = esFecha(sp.hasta) ? sp.hasta : hoy;
-  const desde = esFecha(sp.desde) ? sp.desde : sumarDias(hasta, -29);
+  const desde = esFecha(sp.desde) ? sp.desde : sumarDias(inicioSemana(hasta), -21);
 
   const [ind, [{ abiertas }]] = await Promise.all([
     calcularIndicadores(desde, hasta, hoy),
@@ -165,6 +166,52 @@ export default async function Indicadores({ searchParams }: PageProps<"/estrateg
           ))}
         </div>
       </form>
+
+      <section className="card overflow-hidden">
+        <div className="border-b border-borde px-6 py-4">
+          <h2 className="text-lg font-semibold text-marino">Asistencia semanal por sede</h2>
+          <p className="mt-1 text-sm text-texto-2">Programados, asistentes (presentes y tardanzas) y porcentaje. Semanas de lunes a domingo, hasta hoy, según el periodo seleccionado.</p>
+          <p className="mt-1 text-xs text-texto-2">Verde: aumenta respecto a la semana anterior. Rojo: disminuye. Sin cambio o sin comparación: neutro. Si hay varias sesiones, se suman sus cupos y asistencias. «Pendiente» indica un porcentaje provisional porque falta registrar alguna lista.</p>
+        </div>
+        {ind.asistenciaSemanal.filas.length === 0 ? <Vacio>Sin sesiones en el periodo.</Vacio> : (
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse text-sm">
+              <thead>
+                <tr className="bg-[#4472c4] text-white">
+                  <th rowSpan={2} className="sticky left-0 z-10 min-w-64 border border-[#365fa5] bg-[#4472c4] px-4 py-3 text-left">Sede</th>
+                  {ind.asistenciaSemanal.semanas.map((semana) => <th key={semana} colSpan={3} className="min-w-72 border border-[#365fa5] px-3 py-3">{fechaCorta(semana)} – {fechaCorta(sumarDias(semana, 6))}</th>)}
+                </tr>
+                <tr className="bg-[#e5ecf8] text-marino">
+                  {ind.asistenciaSemanal.semanas.map((semana) => <Fragment key={semana}><th className="border border-borde px-3 py-2">Programados</th><th className="border border-borde px-3 py-2">Asistentes</th><th className="border border-borde px-3 py-2">%</th></Fragment>)}
+                </tr>
+              </thead>
+              <tbody>
+                {[...ind.asistenciaSemanal.filas, { id: -1, nombre: "Total", semanas: Object.fromEntries(ind.asistenciaSemanal.semanas.map((semana) => [semana, ind.asistenciaSemanal.filas.reduce((total, fila) => {
+                  const c = fila.semanas[semana];
+                  if (c) { total.programados += c.programados; total.asistentes += c.asistentes; total.sesiones += c.sesiones; total.registradas += c.registradas; }
+                  return total;
+                }, { programados: 0, asistentes: 0, sesiones: 0, registradas: 0 })])) }].map((fila) => (
+                  <tr key={fila.id} className={fila.id === -1 ? "bg-[#e5ecf8] font-bold" : "bg-white"}>
+                    <th scope="row" className="sticky left-0 z-10 border border-borde bg-inherit px-4 py-3 text-left">{fila.nombre}</th>
+                    {ind.asistenciaSemanal.semanas.map((semana) => {
+                      const c = fila.semanas[semana];
+                      const porcentaje = c?.programados && c.registradas ? Math.round(c.asistentes * 1000 / c.programados) / 10 : null;
+                      const anterior = fila.semanas[sumarDias(semana, -7)];
+                      const porcentajeAnterior = anterior?.programados && anterior.registradas ? Math.round(anterior.asistentes * 1000 / anterior.programados) / 10 : null;
+                      const color = porcentaje === null || porcentajeAnterior === null || porcentaje === porcentajeAnterior ? "" : porcentaje > porcentajeAnterior ? "bg-[#e2efda] text-[#166534]" : "bg-[#fce4e4] text-[#991b1b]";
+                      return <Fragment key={semana}>
+                        <td className="border border-borde bg-[#edf2fb] px-3 py-3 text-center">{c?.sesiones ? c.programados : "—"}</td>
+                        <td className="border border-borde px-3 py-3 text-center">{c?.registradas ? c.asistentes : "—"}{c && c.registradas < c.sesiones && <span className="block text-xs font-normal text-texto-2">Pendiente</span>}</td>
+                        <td className={`border border-borde px-3 py-3 text-center font-semibold ${color}`}>{porcentaje === null ? "—" : `${porcentaje}%`}</td>
+                      </Fragment>;
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
 
       <section aria-label="Indicadores del periodo" className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         {DEF.map((d) => {
