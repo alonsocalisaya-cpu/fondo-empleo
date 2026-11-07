@@ -1,0 +1,11 @@
+import {test} from "node:test";
+import assert from "node:assert/strict";
+import {cambiosDeVersion} from "./eventos-versiones";
+import type {ArchivoPlan} from "./versiones-plan";
+const vacio={cambios:"",archivos:[] as ArchivoPlan[]};
+test("registra preparación y no inventa un plan vigente",()=>{const c=cambiosDeVersion({operacion:"preparar",numero:3,antes:vacio,despues:vacio});assert.equal(c.length,1);assert.match(c[0].campo,/Preparó la versión 3/);assert.equal(c[0].seccion,"Documentos y versiones");});
+test("no duplica entradas al guardar sin cambios",()=>assert.deepEqual(cambiosDeVersion({operacion:"guardar",numero:3,antes:vacio,despues:vacio}),[]));
+test("registra nombres de evidencias nuevas sin exponer rutas",()=>{const archivos:ArchivoPlan[]=[{nombre:"foto1.jpg",ruta:"privado/uno.jpg",tipo:"evidencia"},{nombre:"foto2.jpg",ruta:"privado/dos.jpg",tipo:"evidencia"}];const c=cambiosDeVersion({operacion:"guardar",numero:3,antes:vacio,despues:{cambios:"",archivos}});assert.equal(c.length,1);assert.match(c[0].campo,/evidencias \(2\)/);assert.equal(c[0].despues,"foto1.jpg\nfoto2.jpg");assert.ok(!JSON.stringify(c).includes("privado/"));});
+test("publicar muestra la transición de vigente",()=>{const c=cambiosDeVersion({operacion:"publicar",numero:3,antes:vacio,despues:vacio,vigenteAnterior:2});assert.equal(c[0].antes,"Vigente: versión 2");assert.equal(c[0].despues,"Vigente: versión 3");});
+test("descartar no registra archivos seleccionados que nunca se guardaron",()=>{const c=cambiosDeVersion({operacion:"descartar",numero:3,antes:vacio,despues:{cambios:"Sin guardar",archivos:[{nombre:"no_subida.jpg",ruta:"x",tipo:"evidencia"}]}});assert.equal(c.length,1);assert.match(c[0].campo,/Descartó/);assert.ok(!JSON.stringify(c).includes("no_subida"));});
+test("guarda el antes y después de la anotación",()=>{const c=cambiosDeVersion({operacion:"guardar",numero:3,antes:{...vacio,cambios:"Antes"},despues:{...vacio,cambios:"Ahora"}});assert.equal(c[0].antes,"Antes");assert.equal(c[0].despues,"Ahora");});

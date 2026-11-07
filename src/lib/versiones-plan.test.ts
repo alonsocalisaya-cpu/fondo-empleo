@@ -1,0 +1,10 @@
+import {test} from "node:test";
+import assert from "node:assert/strict";
+import {errorPublicacion,vigenteDe} from "./versiones-plan";
+test("una preparación más reciente no reemplaza al plan vigente",()=>assert.equal(vigenteDe([{numero:3,estado:"preparacion"},{numero:1,estado:"publicada"},{numero:2,estado:"publicada"}])?.numero,2));
+test("al publicar pasa a ser vigente sin borrar las versiones previas",()=>{const versiones=[{numero:3,estado:"publicada"},{numero:1,estado:"publicada"},{numero:2,estado:"publicada"}];assert.equal(vigenteDe(versiones)?.numero,3);assert.equal(versiones.length,3);});
+test("solo preparaciones todavía no constituyen un plan vigente",()=>assert.equal(vigenteDe([{numero:1,estado:"preparacion"}]),undefined));
+test("las evidencias solas no permiten publicar",()=>assert.match(errorPublicacion("Nuevo avance",[{nombre:"foto.jpg",ruta:"foto.jpg",tipo:"evidencia"}])!,/escaneado/));
+test("exige ambos documentos además del detalle",()=>{const escaneado={nombre:"plan.pdf",ruta:"plan.pdf",tipo:"escaneado" as const};const editable={nombre:"plan.docx",ruta:"plan.docx",tipo:"editable" as const};assert.match(errorPublicacion("Cambios",[escaneado])!,/editable/);assert.match(errorPublicacion("Cambios",[editable])!,/escaneado/);assert.equal(errorPublicacion("Cambios",[escaneado,editable]),null);});
+test("una preparación descartada no pasa a ser vigente",()=>assert.equal(vigenteDe([{numero:3,estado:"descartada"},{numero:2,estado:"publicada"}])?.numero,2));
+test("no se publica sin explicar los cambios",()=>assert.match(errorPublicacion("  ",[{nombre:"plan.pdf",ruta:"plan.pdf",tipo:"escaneado"}])!,/Describe/));

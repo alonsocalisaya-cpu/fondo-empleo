@@ -27,6 +27,8 @@ const nextConfig: NextConfig = {
 
   // Solo formularios de Server Actions. Los documentos se transfieren por /api/archivos.
   experimental: {
+    // Mantener ambos límites alineados para que Proxy no trunque las subidas grandes.
+    proxyClientMaxBodySize: "320mb",
     serverActions: { bodySizeLimit: "320mb" },
   },
 

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { and, eq, ilike, or, sql } from "drizzle-orm";
+import { and, ne, eq, ilike, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { participantes, sedes, planesMejoraVersiones } from "@/db/schema";
 import { exigir } from "@/lib/auth";
@@ -13,7 +13,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
   const [lista, lugares, versiones] = await Promise.all([
     db.select({ p: participantes, sede: sedes.nombre }).from(participantes).leftJoin(sedes, eq(sedes.id, participantes.sedeId)).where(and(sede ? eq(participantes.sedeId, sede) : undefined, ...q.split(/\s+/).filter(Boolean).map((t) => or(ilike(sql`concat_ws(' ', ${participantes.nombres}, ${participantes.apellidos})`, `%${t}%`), ilike(participantes.dni, `%${t}%`))))).orderBy(participantes.apellidos, participantes.nombres),
     db.select().from(sedes).orderBy(sedes.nombre),
-    db.select().from(planesMejoraVersiones).orderBy(sql`${planesMejoraVersiones.numero} desc`),
+    db.select().from(planesMejoraVersiones).where(ne(planesMejoraVersiones.estado,"descartada")).orderBy(sql`${planesMejoraVersiones.numero} desc`),
   ]);
   const ultimas = new Map<number, typeof versiones[number]>();
   for (const v of versiones) if (!ultimas.has(v.participanteId)) ultimas.set(v.participanteId, v);

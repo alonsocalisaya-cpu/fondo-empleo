@@ -78,3 +78,175 @@ body {
 .overflow-x-auto {
   position: relative;
 }
+
+/* Lectura del plan: misma distribución, con jerarquía visual para los datos guardados. */
+.plan-lectura fieldset { background: #fff; }
+.plan-lectura [data-plan-bloque="problema"] {
+  background: linear-gradient(115deg, #f5faf8, #fff 75%);
+  border-color: #dbe9e2;
+  border-left: 3px solid #75b49d;
+  border-radius: 12px;
+}
+.plan-lectura fieldset label { color: #65716c; font-weight: 500; }
+.plan-lectura fieldset input:not([type="checkbox"]),
+.plan-lectura fieldset select {
+  color: #283c34 !important;
+  font-weight: 500;
+  padding-left: 0;
+  box-shadow: none;
+  opacity: 1;
+  -webkit-text-fill-color: #283c34;
+}
+.plan-lectura input[type="number"] { appearance: textfield; }
+.plan-lectura input::-webkit-inner-spin-button,
+.plan-lectura input::-webkit-outer-spin-button { appearance: none; }
+.plan-lectura [data-plan-bloque="indicador"] {
+  border-color: #e1e7ed;
+  border-radius: 12px;
+  overflow: hidden;
+}
+.plan-lectura [data-plan-bloque="indicador"] > div:first-child {
+  background: #f2f6fa;
+  border-bottom-color: #e1e7ed;
+}
+.plan-lectura [data-plan-bloque="indicador"] thead { color: #66758a; }
+.plan-lectura [data-plan-bloque="opciones"] {
+  border: 0;
+  padding: 0;
+  background: transparent;
+}
+.plan-lectura [data-plan-bloque="opciones"] > div {
+  border: 1px solid #e4ebe7;
+  border-radius: 12px;
+  background: #f7faf8;
+  padding: 16px;
+}
+.plan-lectura [data-plan-bloque="opciones"] > div:last-child {
+  background: #f7f9fc;
+  border-color: #e3e8ef;
+}
+.plan-lectura button[data-valor] { border-radius: 999px; cursor: default; }
+.plan-lectura [data-edicion] { display: none; }
+.plan-lectura button[aria-haspopup="listbox"] {
+  background: transparent;
+  border-color: transparent;
+  padding-left: 0;
+  opacity: 1;
+}
+.plan-lectura button[aria-haspopup="listbox"] > span:last-child { display: none; }
+
+/* Títulos firmes y datos ligeros en la lectura del plan. */
+.plan-lectura fieldset label,
+.plan-lectura fieldset h3,
+.plan-lectura fieldset h4,
+.plan-lectura fieldset th,
+.plan-lectura fieldset .relative > span:first-child { font-weight: 700; }
+.plan-lectura fieldset input:not([type="checkbox"]),
+.plan-lectura fieldset select,
+.plan-lectura button[data-valor] { font-weight: 400; }
+.plan-lectura fieldset input[data-cuello-botella] {
+  background: #eaf5ef !important;
+  border-left: 3px solid #38977a !important;
+  border-radius: 6px;
+  padding: 12px 14px;
+  color: #165a43 !important;
+  -webkit-text-fill-color: #165a43;
+  font-size: 15px;
+  font-weight: 400;
+}
+
+/* Subrayado discreto para identificar los títulos en modo lectura. */
+.plan-lectura fieldset label,
+.plan-lectura fieldset h3,
+.plan-lectura fieldset h4,
+.plan-lectura fieldset th,
+.plan-lectura fieldset .relative > span:first-child {
+  text-decoration-line: underline;
+  text-decoration-color: #a4c6b7;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
+}
+.plan-lectura fieldset input,
+.plan-lectura fieldset select,
+.plan-lectura fieldset button { text-decoration: none; }
+
+/* Tarjetas de lectura sobre blanco; los indicadores conservan su distinción. */
+.plan-lectura [data-plan-bloque="problema"],
+.plan-lectura [data-plan-bloque="opciones"] > div,
+.plan-lectura [data-plan-bloque="opciones"] > div:last-child {
+  background: #fff;
+}
+.plan-lectura fieldset input[data-cuello-botella] {
+  background: transparent !important;
+}
+
+/* Ficha con cabecera en forma de pestaña, unida a los datos del problema. */
+.plan-ficha { padding-top: 2px; }
+.plan-ficha-titulo {
+  position: relative;
+  isolation: isolate;
+  width: fit-content;
+  max-width: calc(100% - 24px);
+  padding: 12px 24px 12px 18px;
+  margin: 0 0 -1px 0;
+  z-index: 1;
+}
+.plan-ficha-titulo::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: #fff;
+  border: 1px solid #cbded4;
+  border-bottom: 0;
+  border-radius: 12px 15px 0 0;
+  transform: none;
+}
+.plan-ficha-titulo h3 { overflow-wrap: anywhere; }
+.plan-ficha > [data-plan-bloque="problema"],
+.plan-lectura .plan-ficha > [data-plan-bloque="problema"] {
+  border: 1px solid #cbded4;
+  border-radius: 12px;
+  background: #fff;
+  padding: 20px 18px;
+}
+
+/* La pestaña y el cuerpo comparten una única línea izquierda. */
+.plan-ficha > [data-plan-bloque="problema"],
+.plan-lectura .plan-ficha > [data-plan-bloque="problema"] {
+  border-top-left-radius: 0;
+}
+
+.plan-lectura fieldset input[data-cuello-botella] {
+  color: #252b32 !important;
+  -webkit-text-fill-color: #252b32;
+  font-weight: 700;
+  font-size: 16px;
+  border-left-color: #69737e !important;
+}
+
+/* Fichas de indicadores, estrategias y recursos con el mismo contorno de pestaña. */
+.plan-ficha-cuerpo {
+  border: 1px solid #cbded4;
+  border-radius: 0 12px 12px 12px;
+  padding: 16px;
+  background: #fff;
+}
+.plan-ficha-indicadores > .plan-ficha-titulo::before { background: #f2f6fa; border-color: #dce5ee; }
+.plan-ficha-indicadores > .plan-ficha-cuerpo { background: #f7f9fc; border-color: #dce5ee; }
+[data-plan-bloque="opciones"] { border: 0; padding: 0; align-items: start; }
+.plan-lectura [data-plan-bloque="opciones"] > .plan-ficha-opcion,
+.plan-lectura [data-plan-bloque="opciones"] > .plan-ficha-opcion:last-child {
+  background: transparent;
+  padding: 2px 0 0;
+  border: 0;
+  border-radius: 0;
+}
+.plan-ficha-opcion .plan-ficha-titulo { padding: 10px 16px; }
+
+/* Indicadores y metas con fondo blanco, conservando sus contornos. */
+.plan-ficha-indicadores > .plan-ficha-titulo::before,
+.plan-ficha-indicadores > .plan-ficha-cuerpo,
+.plan-lectura [data-plan-bloque="indicador"] > div:first-child {
+  background: #fff;
+}

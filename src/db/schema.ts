@@ -1,3 +1,5 @@
+import type { CambioPlan } from "@/lib/historial-plan";
+import type { PlanMejora } from "@/lib/plan-mejora";
 import {
   real,
   check,
@@ -78,6 +80,8 @@ export const capacitadores = pgTable("capacitadores", {
 });
 
 export const participantes = pgTable("participantes", {
+  planMejora: jsonb("plan_mejora").$type<PlanMejora>(),
+  planRevision: integer("plan_revision").notNull().default(0),
   problemasMejora: jsonb("problemas_mejora").$type<{ texto: string }[]>(),
   id: serial("id").primaryKey(),
   nombres: varchar("nombres", { length: 100 }).notNull(),
@@ -741,6 +745,11 @@ export type RolUsuario = (typeof rolUsuarioEnum.enumValues)[number];
 
 /** Versiones inmutables del plan de cada beneficiario. */
 export const planesMejoraVersiones = pgTable("planes_mejora_versiones", {
+  estado: varchar("estado", {length:20}).notNull().default("publicada"),
+  edicion: integer("edicion").notNull().default(0),
+  publicadoEn: timestamp("publicado_en", {withTimezone:true}),
+  actualizadoEn: timestamp("actualizado_en", {withTimezone:true}).defaultNow().notNull(),
+  plan: jsonb("plan").$type<PlanMejora>(),
   id: serial("id").primaryKey(),
   participanteId: integer("participante_id").notNull().references(() => participantes.id, { onDelete: "restrict" }),
   numero: integer("numero").notNull(),
@@ -749,4 +758,27 @@ export const planesMejoraVersiones = pgTable("planes_mejora_versiones", {
   archivos: jsonb("archivos").$type<{ nombre: string; ruta: string; tipo: "plan" | "escaneado" | "editable" | "evidencia" }[]>().notNull(),
   autorId: integer("autor_id").notNull().references(() => usuarios.id, { onDelete: "restrict" }),
   creadoEn: creadoEn(),
-}, (t) => [uniqueIndex("planes_mejora_version_unique").on(t.participanteId, t.numero)]);
+}, (t) => [uniqueIndex("planes_mejora_version_unique").on(t.participanteId, t.numero), uniqueIndex("planes_una_preparacion").on(t.participanteId).where(sql`${t.estado} = 'preparacion'`), check("planes_estado_valido", sql`${t.estado} IN ('preparacion','publicada','descartada')`)]);
+
+export const historialPlanesMejora = pgTable("historial_planes_mejora", {
+ id: serial("id").primaryKey(),
+ participanteId: integer("participante_id").notNull().references(() => participantes.id, { onDelete: "restrict" }),
+ revision: integer("revision").notNull(),
+ usuarioId: integer("usuario_id").notNull().references(() => usuarios.id, { onDelete: "restrict" }),
+ autor: text("autor").notNull(),
+ antes: jsonb("antes").$type<PlanMejora>().notNull(),
+ despues: jsonb("despues").$type<PlanMejora>().notNull(),
+ cambios: jsonb("cambios").$type<CambioPlan[]>().notNull(),
+ creadoEn: creadoEn(),
+}, (t) => [uniqueIndex("historial_planes_revision_unique").on(t.participanteId,t.revision)]);
+
+/** Auditoría de documentos, separada de la revisión del editor para evitar conflictos. */
+export const eventosVersionesPlan = pgTable("eventos_versiones_plan", {
+ id: serial("id").primaryKey(),
+ participanteId: integer("participante_id").notNull().references(() => participantes.id, {onDelete:"restrict"}),
+ versionId: integer("version_id").notNull().references(() => planesMejoraVersiones.id, {onDelete:"restrict"}),
+ usuarioId: integer("usuario_id").notNull().references(() => usuarios.id, {onDelete:"restrict"}),
+ autor: text("autor").notNull(),
+ cambios: jsonb("cambios").$type<CambioPlan[]>().notNull(),
+ creadoEn: creadoEn(),
+},t=>[index("eventos_versiones_participante_idx").on(t.participanteId)]);
