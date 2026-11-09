@@ -1,5 +1,6 @@
 "use client";
 import { useActionState, useEffect, useRef, useState, type ReactNode } from "react";
+import { mismosDatos } from "@/lib/comparar-datos";
 import { idCliente } from "@/lib/id-cliente";
 import { colorGrupo, nombreGrupo } from "@/lib/grupos-plan";
 import EvaluacionPlan from "./EvaluacionPlan";
@@ -35,8 +36,8 @@ export default function EditorPlan({participanteId,inicial,revision,editable,pla
  const dialogoEliminar=useRef<HTMLDialogElement>(null);
  const [estado,accion,pending]=useActionState(async(prev:ResultadoPlan,f:FormData)=>{const r=await guardarEditorPlan(prev,f);if(r.ok&&r.plan){const seccion=f.get("seccion") as SeccionEditorPlan;setGuardado(JSON.stringify({...r.plan,inicio:INICIO_PLAN_MEJORA}));setPlan(v=>combinarSeccionPlan(v,r.plan!,seccion));}return r;},{} as ResultadoPlan);
  const baseGuardada=JSON.parse(guardado) as PlanMejora;
- const dirty=evaluacionPendiente||(["problemas","presupuesto","inicio","actividades"] as const).some(clave=>JSON.stringify(plan[clave])!==JSON.stringify(baseGuardada[clave]));
- const pendienteSeccion=(seccion:SeccionEditorPlan)=>JSON.stringify(combinarSeccionPlan(baseGuardada,plan,seccion))!==guardado;
+ const dirty=evaluacionPendiente||(["problemas","presupuesto","inicio","actividades"] as const).some(clave=>!mismosDatos(plan[clave],baseGuardada[clave]));
+ const pendienteSeccion=(seccion:SeccionEditorPlan)=>!mismosDatos(combinarSeccionPlan(baseGuardada,plan,seccion),baseGuardada);
  const dirtySeccion=pendienteSeccion(seccionActual);
  useEffect(()=>{if(!dirty)return;const antes=(e:BeforeUnloadEvent)=>{e.preventDefault();};window.addEventListener("beforeunload",antes);return()=>window.removeEventListener("beforeunload",antes);},[dirty]);
  const p=plan.problemas.find(x=>x.id===seleccion) ?? plan.problemas[0];

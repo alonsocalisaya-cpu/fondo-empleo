@@ -1,6 +1,7 @@
 "use client";
 import {useActionState,useEffect,useState} from "react";
 import {CRITERIOS_EVALUACION,evaluacionVacia,type EvaluacionPlan as DatosEvaluacion} from "@/lib/evaluacion-plan";
+import {mismosDatos} from "@/lib/comparar-datos";
 import {ESTADOS_PLAN} from "@/lib/estados-plan";
 import {guardarEvaluacionPlan} from "./actions";
 export default function EvaluacionPlan({participanteId,inicial,resultadoInicial,revision,editable,onPendiente}:{participanteId:number;inicial:DatosEvaluacion|null;resultadoInicial:string;revision:number;editable:boolean;onPendiente:(valor:boolean)=>void}) {
@@ -8,7 +9,7 @@ export default function EvaluacionPlan({participanteId,inicial,resultadoInicial,
  const [resultado,setResultado]=useState(resultadoInicial);
  const [guardado,setGuardado]=useState(JSON.stringify({datos:inicial??evaluacionVacia(),resultado:resultadoInicial}));
  const [estado,accion,pending]=useActionState(async(prev:{error?:string;ok?:boolean;revision?:number},f:FormData)=>{const r=await guardarEvaluacionPlan(prev,f);if(r.ok)setGuardado(JSON.stringify({datos:JSON.parse(String(f.get("evaluacion"))),resultado:String(f.get("resultado"))}));return r;},{});
- const dirty=JSON.stringify({datos,resultado})!==guardado;
+ const dirty=!mismosDatos({datos,resultado},JSON.parse(guardado));
  useEffect(()=>{onPendiente(dirty||pending);},[dirty,pending,onPendiente]);
  const actual=ESTADOS_PLAN.find(e=>e.valor===resultado)??ESTADOS_PLAN[0];
  return <form action={accion} onReset={e=>e.preventDefault()} className="space-y-5 bg-[#f7f5fc] p-4 sm:p-5"><input type="hidden" name="participanteId" value={participanteId}/><input type="hidden" name="revision" value={estado.revision??revision}/><input type="hidden" name="evaluacion" value={JSON.stringify(datos)}/><input type="hidden" name="resultado" value={resultado}/>
