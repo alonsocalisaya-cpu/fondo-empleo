@@ -1,4 +1,5 @@
 "use server";
+import { validarEstadoDocumentoPlan } from "@/lib/estado-documento-plan";
 import { validarEvaluacionPlan } from "@/lib/evaluacion-plan";
 import { and, eq, sql } from "drizzle-orm";
 import { redirect } from "next/navigation";
@@ -21,6 +22,8 @@ export async function guardarVersion(form: FormData) {
   const editables = archivosDe(form, "editable");
   const evidencias = archivosDe(form, "evidencias");
   let error = "";
+  let estadoDocumento:"completo"|"observado"|null=null;try {estadoDocumento=validarEstadoDocumentoPlan(form.get("estadoDocumento"));}catch {error="Selecciona Completo u Observado antes de publicar.";}
+  if(!estadoDocumento)error="Selecciona Completo u Observado antes de publicar.";
   if (!Number.isSafeInteger(id) || id < 1) throw new Error("Beneficiario inválido");
   if (!cambios || cambios.length > 5000) error = "Describe los cambios de la versión.";
   if (!escaneados.length || !editables.length) error = "Adjunta el escaneado y el editable para publicar.";
@@ -40,7 +43,7 @@ export async function guardarVersion(form: FormData) {
           archivos.push({nombre: f.name, ruta: guardado.archivo, tipo});
         }
       }
-      await tx.insert(planesMejoraVersiones).values({ participanteId: id, numero: ultima.numero + 1, cambios, problemas, plan: persona.plan, archivos, autorId: u.id });
+      await tx.insert(planesMejoraVersiones).values({ participanteId: id, numero: ultima.numero + 1, estadoDocumento, cambios, problemas, plan: persona.plan, archivos, autorId: u.id });
     });
   } catch (e) {
     await Promise.all(archivos.map((a) => borrarArchivo(a.ruta)));
@@ -114,6 +117,7 @@ export async function guardarPreparacion(_prev:{error?:string},form:FormData):Pr
  const id=Number(form.get("participanteId")),versionId=Number(form.get("versionId")),edicion=Number(form.get("edicion"));
  if(!Number.isSafeInteger(id)||id<1||!Number.isSafeInteger(versionId)||versionId<1||!Number.isSafeInteger(edicion)||edicion<0)return {error:"Versión inválida."};
  const descartar=form.get("operacion")==="descartar";
+ let estadoDocumento;try {estadoDocumento=validarEstadoDocumentoPlan(form.get("estadoDocumento"));}catch(e){return {error:e instanceof Error?e.message:"Estado del documento inválido."};}
  const cambios=String(form.get("cambios") ?? "").trim();if(!descartar && cambios.length>5000)return {error:"El detalle admite hasta 5000 caracteres."};
  const publicar=form.get("operacion")==="publicar";
  const grupos=[["escaneado",archivosDe(form,"escaneado")],["editable",archivosDe(form,"editable")],["evidencia",archivosDe(form,"evidencias")]] as const;
@@ -130,11 +134,12 @@ export async function guardarPreparacion(_prev:{error?:string},form:FormData):Pr
      // No se modifica ni reemplaza ningún adjunto previamente guardado.
      for(const [tipo,files] of grupos)for(const f of files){const r=await guardarContinuo({cuerpo:f.stream(),nombre:f.name,tamano:f.size,carpeta:`planes-mejora/${id}`,base:CARPETA_ARCHIVOS});nuevos.push({nombre:f.name,ruta:r.archivo,tipo});}
      const archivos=[...v.archivos,...nuevos];
-     if(publicar){const err=errorPublicacion(cambios,archivos);if(err)throw Error(err);}
+     if(publicar){const err=errorPublicacion(cambios,archivos,estadoDocumento);if(err)throw Error(err);}
      const [vigente]=await tx.select({numero:planesMejoraVersiones.numero}).from(planesMejoraVersiones).where(and(eq(planesMejoraVersiones.participanteId,id),eq(planesMejoraVersiones.estado,"publicada"))).orderBy(sql`${planesMejoraVersiones.numero} desc`).limit(1);
      const eventos=cambiosDeVersion({operacion:publicar?"publicar":"guardar",numero:v.numero,antes:v,despues:{cambios,archivos},vigenteAnterior:vigente?.numero});
+     if(!publicar&&v.estadoDocumento!==estadoDocumento)eventos.push({seccion:"Documentos y versiones",campo:`Versión ${v.numero} · Estado del documento`,antes:v.estadoDocumento==="completo"?"Completo":v.estadoDocumento==="observado"?"Observado":"Sin marcar",despues:estadoDocumento==="completo"?"Completo":estadoDocumento==="observado"?"Observado":"Sin marcar"});
      if(eventos.length)await tx.insert(eventosVersionesPlan).values({participanteId:id,versionId:v.id,usuarioId:u.id,autor:u.nombre,cambios:eventos});
-     await tx.update(planesMejoraVersiones).set({cambios,archivos,edicion:v.edicion+1,actualizadoEn:new Date(),...(publicar?{estado:"publicada",publicadoEn:new Date(),plan:p.planMejora,problemas:p.problemasMejora ?? v.problemas}:{})}).where(eq(planesMejoraVersiones.id,v.id));
+     await tx.update(planesMejoraVersiones).set({cambios,archivos,estadoDocumento,edicion:v.edicion+1,actualizadoEn:new Date(),...(publicar?{estado:"publicada",publicadoEn:new Date(),plan:p.planMejora,problemas:p.problemasMejora ?? v.problemas}:{})}).where(eq(planesMejoraVersiones.id,v.id));
    });
  }catch(e){await Promise.all(nuevos.map(a=>borrarArchivo(a.ruta)));console.error("No se pudo guardar la preparación",e);return {error:e instanceof Error && !('query' in e)?e.message:"No se pudo guardar. Intenta nuevamente."};}
  revalidatePath("/operativo/planes-mejora");revalidatePath(`/operativo/planes-mejora/${id}`);

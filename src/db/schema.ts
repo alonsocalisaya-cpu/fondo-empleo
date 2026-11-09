@@ -751,6 +751,7 @@ export type RolUsuario = (typeof rolUsuarioEnum.enumValues)[number];
 
 /** Versiones inmutables del plan de cada beneficiario. */
 export const planesMejoraVersiones = pgTable("planes_mejora_versiones", {
+  estadoDocumento: varchar("estado_documento", {length:20}),
   estado: varchar("estado", {length:20}).notNull().default("publicada"),
   edicion: integer("edicion").notNull().default(0),
   publicadoEn: timestamp("publicado_en", {withTimezone:true}),
