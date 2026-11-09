@@ -1,4 +1,5 @@
 import "server-only";
+import type { CeldaSemanal } from "./asistencia-semanal";
 import { inicioSemana, sumarDias } from "./fechas";
 import { and, gte, inArray, lte, ne, sql } from "drizzle-orm";
 import { db } from "@/db";
@@ -71,10 +72,10 @@ function resultado(a: Acum): Resultado {
 }
 
 /** Calcula los indicadores del periodo: total y desglosado por sede, componente y consultor. */
-export async function calcularIndicadores(desde: string, hasta: string, hoy: string) {
-  const progs = await listarProgramaciones(
+export async function calcularIndicadores(desde: string, hasta: string, hoy: string, filtros:{region?:number;sede?:number}={}) {
+  const progs = (await listarProgramaciones(
     and(gte(programaciones.fecha, desde), lte(programaciones.fecha, hasta), ne(programaciones.estado, "cancelada")),
-  );
+  )).filter(p=>(!filtros.region||p.sede.estructuraId===filtros.region)&&(!filtros.sede||p.sede.id===filtros.sede));
   const ids = progs.map((p) => p.id);
 
   const [asis, ins, preps] = ids.length
@@ -111,7 +112,6 @@ export async function calcularIndicadores(desde: string, hasta: string, hoy: str
   const semanas: string[] = [];
   const finReal = hasta < hoy ? hasta : hoy;
   for (let semana = inicioSemana(desde); semana <= finReal; semana = sumarDias(semana, 7)) semanas.push(semana);
-  type CeldaSemanal = { programados: number; asistentes: number; sesiones: number; registradas: number };
   const semanal = new Map<number, { id: number; nombre: string; semanas: Record<string, CeldaSemanal> }>();
   for (const p of progs) {
     if (p.fecha > finReal) continue;
@@ -121,11 +121,11 @@ export async function calcularIndicadores(desde: string, hasta: string, hoy: str
       semanal.set(p.sede.id, fila);
     }
     const semana = inicioSemana(p.fecha);
-    const celda = fila.semanas[semana] ??= { programados: 0, asistentes: 0, sesiones: 0, registradas: 0 };
+    const celda = fila.semanas[semana] ??= { programados: 0, programadosRegistrados: 0, asistentes: 0, sesiones: 0, registradas: 0 };
     celda.programados += mFicha.get(p.id)?.programados ?? mIns.get(p.id) ?? 0;
     celda.asistentes += mAsis.get(p.id)?.asistieron ?? 0;
     celda.sesiones++;
-    if (mAsis.has(p.id)) celda.registradas++;
+    if (mAsis.has(p.id)) {celda.registradas++;celda.programadosRegistrados+=mFicha.get(p.id)?.programados ?? mIns.get(p.id) ?? 0;}
   }
 
   const total = vacio();

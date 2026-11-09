@@ -1,0 +1,10 @@
+"use client";
+import {useState,useTransition} from "react";
+import {useRouter} from "next/navigation";
+export default function FiltrosUbicacion({regiones,sedes,regionInicial,sedeInicial}:{regiones:{id:number;nombre:string}[];sedes:{id:number;nombre:string;estructuraId:number}[];regionInicial:number;sedeInicial:number}) {
+ const [region,setRegion]=useState(regionInicial),[sede,setSede]=useState(sedeInicial);
+ const router=useRouter();const [pending,startTransition]=useTransition();
+ function aplicar(form:HTMLFormElement|null,nuevaRegion:number,nuevaSede:number){if(!form)return;const valores=new FormData(form);const params=new URLSearchParams();for(const [k,v] of valores)if(typeof v==="string"&&v)params.set(k,v);if(nuevaRegion)params.set("region",String(nuevaRegion));else params.delete("region");if(nuevaSede)params.set("sede",String(nuevaSede));else params.delete("sede");startTransition(()=>router.push(`/estrategico/indicadores?${params}`));}
+
+ return <><div><label htmlFor="i-region" className="etiqueta">Región</label><select id="i-region" name="region" value={region||""} disabled={pending} onChange={e=>{const nueva=Number(e.target.value);setRegion(nueva);setSede(0);aplicar(e.currentTarget.form,nueva,0);}} className="campo w-full sm:w-44"><option value="">Todas las regiones</option>{regiones.map(r=><option key={r.id} value={r.id}>{r.nombre}</option>)}</select></div><div><label htmlFor="i-sede" className="etiqueta">Sede</label><select id="i-sede" name="sede" value={sede||""} disabled={pending} onChange={e=>{const nueva=Number(e.target.value);setSede(nueva);aplicar(e.currentTarget.form,region,nueva);}} className="campo w-full sm:w-64"><option value="">Todas las sedes</option>{regiones.filter(r=>!region||r.id===region).map(r=><optgroup key={r.id} label={r.nombre}>{sedes.filter(s=>s.estructuraId===r.id).map(s=><option key={s.id} value={s.id}>{s.nombre}</option>)}</optgroup>)}</select></div>{pending&&<span role="status" className="pb-2 text-xs text-texto-2">Aplicando filtros…</span>}</>;
+}
