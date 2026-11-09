@@ -13,6 +13,11 @@ export async function cargarPermisos(forzar = false) {
   for (const f of filas) {
     if (!(f.modulo in MODULOS) || FIJOS.some((x) => x.rol === f.rol && x.modulo === f.modulo)) continue;
     const fila = m[f.rol as RolUsuario];
+    if(f.modulo==="capacitaciones"&&!filas.some(x=>x.rol===f.rol&&x.modulo==="planes_mejora")) {
+      if(f.nivel==="ver"||f.nivel==="editar")fila.planes_mejora=f.nivel;
+      else delete fila.planes_mejora;
+    }
+
     if (f.nivel === "ver" || f.nivel === "editar") fila[f.modulo as Modulo] = f.nivel as Nivel;
     else delete fila[f.modulo as Modulo];
   }

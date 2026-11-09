@@ -253,6 +253,27 @@
       "when": 1794068764673,
       "tag": "0035_eventos_versiones",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1794068765673,
+      "tag": "0036_estado_plan_mejora",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1794068766673,
+      "tag": "0037_evaluacion_plan",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1794068767673,
+      "tag": "0038_rol_digitador",
+      "breakpoints": true
     }
   ]
 }

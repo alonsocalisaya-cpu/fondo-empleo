@@ -1,4 +1,5 @@
 "use server";
+import { validarEvaluacionPlan } from "@/lib/evaluacion-plan";
 import { and, eq, sql } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
@@ -8,11 +9,11 @@ import { exigir } from "@/lib/auth";
 import { archivosDe, validarArchivo, CARPETA_ARCHIVOS, borrarArchivo } from "@/lib/archivos";
 import { cambiosDeVersion } from "@/lib/eventos-versiones";
 import { compararPlanes } from "@/lib/historial-plan";
-import { planInicial, validarPlan, type ResultadoPlan } from "@/lib/plan-mejora";
+import { INICIO_PLAN_MEJORA, combinarSeccionPlan, planInicial, validarPlan, type PlanMejora, type ResultadoPlan } from "@/lib/plan-mejora";
 import { errorPublicacion, type ArchivoPlan } from "@/lib/versiones-plan";
 import { guardarContinuo } from "@/lib/archivo-continuo";
 export async function guardarVersion(form: FormData) {
-  const u = await exigir("capacitaciones");
+  const u = await exigir("planes_mejora");
   const id = Number(form.get("participanteId"));
   const volver = `/operativo/planes-mejora/${id}`;
   const cambios = String(form.get("cambios") ?? "").trim();
@@ -52,7 +53,7 @@ export async function guardarVersion(form: FormData) {
 }
 
 export async function guardarProblemas(form: FormData) {
-  await exigir("capacitaciones");
+  await exigir("planes_mejora");
   const id=Number(form.get("participanteId"));
   if(!Number.isSafeInteger(id) || id<1) throw new Error("Beneficiario inválido");
   const problemas=[1,2,3].map((n)=>({texto:String(form.get(`problema${n}`) ?? "").trim()}));
@@ -64,12 +65,14 @@ export async function guardarProblemas(form: FormData) {
 }
 
 export async function guardarEditorPlan(_prev:ResultadoPlan, form:FormData):Promise<ResultadoPlan> {
- const u=await exigir("capacitaciones");
+ const u=await exigir("planes_mejora");
  const id=Number(form.get("participanteId"));const revision=Number(form.get("revision"));
  if(!Number.isSafeInteger(id)||id<1||!Number.isSafeInteger(revision)||revision<0)return {error:"Beneficiario o revisión inválida."};
  const raw=String(form.get("plan") ?? "");if(raw.length>250000)return {error:"El plan supera el tamaño permitido."};
- let plan;
- try {plan=validarPlan(JSON.parse(raw));}catch(e){return {error:e instanceof SyntaxError ? "No se pudo leer el plan." : e instanceof Error ? e.message : "Plan inválido."};}
+ const seccion=form.get("seccion");
+ if(seccion!=="problemas"&&seccion!=="presupuesto"&&seccion!=="cronograma")return {error:"Selecciona la sección que deseas guardar."};
+ let entrada:Partial<PlanMejora>;
+ try {entrada=JSON.parse(raw);if(!entrada||typeof entrada!=="object"||Array.isArray(entrada))throw Error("Plan inválido.");}catch(e){return {error:e instanceof SyntaxError ? "No se pudo leer el plan." : e instanceof Error ? e.message : "Plan inválido."};}
  try {
    const resultado=await db.transaction(async(tx):Promise<ResultadoPlan>=>{
      const [persona]=await tx.select().from(participantes).where(eq(participantes.id,id)).for("update");
@@ -77,11 +80,13 @@ export async function guardarEditorPlan(_prev:ResultadoPlan, form:FormData):Prom
      if(persona.planRevision!==revision)return {error:"El plan cambió en otra ventana. Copia tus cambios y recarga antes de guardar para no sobrescribirlos."};
      const [anterior]=persona.planMejora || persona.problemasMejora ? [] : await tx.select({problemas:planesMejoraVersiones.problemas}).from(planesMejoraVersiones).where(eq(planesMejoraVersiones.participanteId,id)).orderBy(sql`${planesMejoraVersiones.numero} desc`).limit(1);
      const antes=persona.planMejora ?? planInicial(persona.problemasMejora ?? anterior?.problemas ?? []);
+     let plan:PlanMejora;
+     try {plan=validarPlan(combinarSeccionPlan(antes,seccion==="cronograma"?{...entrada,inicio:INICIO_PLAN_MEJORA}:entrada,seccion));}catch(e){return {error:e instanceof Error?e.message:"Revisa los datos de esta sección."};}
      const cambios=compararPlanes(antes,plan);
-     if(!cambios.length)return {ok:true,revision};
+     if(!cambios.length)return {ok:true,revision,plan};
      await tx.update(participantes).set({planMejora:plan,problemasMejora:plan.problemas.map(p=>({texto:p.texto})),planRevision:revision+1}).where(eq(participantes.id,id));
      await tx.insert(historialPlanesMejora).values({participanteId:id,revision:revision+1,usuarioId:u.id,autor:u.nombre,antes,despues:plan,cambios});
-     return {ok:true,revision:revision+1};
+     return {ok:true,revision:revision+1,plan};
    });
    if(resultado.ok){revalidatePath("/operativo/planes-mejora");revalidatePath(`/operativo/planes-mejora/${id}`);}
    return resultado;
@@ -89,7 +94,7 @@ export async function guardarEditorPlan(_prev:ResultadoPlan, form:FormData):Prom
 }
 
 export async function prepararVersion(form:FormData) {
- const u=await exigir("capacitaciones");const id=Number(form.get("participanteId"));
+ const u=await exigir("planes_mejora");const id=Number(form.get("participanteId"));
  if(!Number.isSafeInteger(id)||id<1)throw Error("Beneficiario inválido");
  await db.transaction(async(tx)=>{
    const [p]=await tx.select().from(participantes).where(eq(participantes.id,id)).for("update");
@@ -105,7 +110,7 @@ export async function prepararVersion(form:FormData) {
  redirect(`/operativo/planes-mejora/${id}?preparacion=1#versiones-plan`);
 }
 export async function guardarPreparacion(_prev:{error?:string},form:FormData):Promise<{error?:string;ok?:boolean}> {
- const u=await exigir("capacitaciones");
+ const u=await exigir("planes_mejora");
  const id=Number(form.get("participanteId")),versionId=Number(form.get("versionId")),edicion=Number(form.get("edicion"));
  if(!Number.isSafeInteger(id)||id<1||!Number.isSafeInteger(versionId)||versionId<1||!Number.isSafeInteger(edicion)||edicion<0)return {error:"Versión inválida."};
  const descartar=form.get("operacion")==="descartar";
@@ -134,4 +139,14 @@ export async function guardarPreparacion(_prev:{error?:string},form:FormData):Pr
  }catch(e){await Promise.all(nuevos.map(a=>borrarArchivo(a.ruta)));console.error("No se pudo guardar la preparación",e);return {error:e instanceof Error && !('query' in e)?e.message:"No se pudo guardar. Intenta nuevamente."};}
  revalidatePath("/operativo/planes-mejora");revalidatePath(`/operativo/planes-mejora/${id}`);
  return {ok:true};
+}
+
+export async function guardarEvaluacionPlan(_prev:{error?:string;ok?:boolean;revision?:number},form:FormData):Promise<{error?:string;ok?:boolean;revision?:number}> {
+ await exigir("planes_mejora");
+ const id=Number(form.get("participanteId")),revision=Number(form.get("revision")),estado=String(form.get("resultado"));
+ if(!Number.isSafeInteger(id)||id<1||!Number.isSafeInteger(revision)||revision<0)return {error:"Evaluación inválida."};
+ let evaluacion;try {const raw=String(form.get("evaluacion")??"");if(raw.length>25000)throw Error("La evaluación supera el tamaño permitido.");evaluacion=validarEvaluacionPlan(JSON.parse(raw),estado);}catch(e){return {error:e instanceof Error?e.message:"Revisa la evaluación."};}
+ try {const filas=await db.update(participantes).set({evaluacionPlanMejora:evaluacion,estadoPlanMejora:estado,evaluacionPlanRevision:revision+1}).where(and(eq(participantes.id,id),eq(participantes.evaluacionPlanRevision,revision))).returning({id:participantes.id});if(!filas.length)return {error:"La evaluación cambió en otra ventana. Copia tus cambios y recarga antes de guardar."};}
+ catch {return {error:"No se pudo guardar la evaluación. Intenta nuevamente."};}
+ revalidatePath("/operativo/planes-mejora");revalidatePath(`/operativo/planes-mejora/${id}`);return {ok:true,revision:revision+1};
 }

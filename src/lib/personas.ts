@@ -14,7 +14,7 @@ export const normalizar = (t: string | null | undefined) =>
   (t ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
 
 /** Roles del personal interno (los que tienen registro en «personal»). */
-const ROLES_INTERNOS = ["asistente", "jefe_proyecto", "jefe_comercial", "gestion_documental", "administradora", "rrhh"] as const;
+const ROLES_INTERNOS = ["asistente", "jefe_proyecto", "jefe_comercial", "gestion_documental", "administradora", "rrhh", "digitador"] as const;
 type RolInterno = (typeof ROLES_INTERNOS)[number];
 /** Si tiene varios roles internos, «asistente» manda (es el que se asigna a las sesiones). */
 const rolInterno = (roles: readonly RolUsuario[]) => ROLES_INTERNOS.find((r) => roles.includes(r)) as RolInterno | undefined;

@@ -7,6 +7,7 @@ import type { RolFlujo } from "./flujo-pre";
 
 export const ROLES_USUARIO: Record<RolUsuario, string> = {
   admin: "Administrador del sistema",
+  digitador: "Digitador",
   jefe_proyecto: "Jefe de Proyecto",
   jefe_comercial: "Agente Comercial",
   asistente: "Asistente de Capacitación",
@@ -24,6 +25,7 @@ export type Modulo =
   | "indicadores"
   | "acciones"
   | "capacitaciones"
+  | "planes_mejora"
   | "beneficiarios"
   | "rrhh"
   | "logistica"
@@ -41,6 +43,7 @@ export const MODULOS: Record<Modulo, { nombre: string; rutas: string[] }> = {
   consultores: { nombre: "Carga laboral del personal", rutas: ["/estrategico/consultores"] },
   indicadores: { nombre: "Indicadores", rutas: ["/estrategico/indicadores", "/estrategico"] },
   acciones: { nombre: "Acciones correctivas", rutas: ["/estrategico/acciones-correctivas"] },
+  planes_mejora: { nombre: "Planes de Mejora", rutas: ["/operativo/planes-mejora"] },
   beneficiarios: { nombre: "Beneficiarios", rutas: ["/operativo/capacitaciones/participantes"] },
   capacitaciones: { nombre: "Capacitaciones (pre y post, asistencia)", rutas: ["/operativo"] },
   rrhh: { nombre: "Personal (datos del equipo)", rutas: ["/personal"] },
@@ -57,20 +60,21 @@ const E: Nivel = "editar";
 /** Permisos por defecto: lo que no aparece, no se puede ni ver. Se pueden cambiar en «Usuarios y roles». */
 export const PERMISOS_BASE: Record<RolUsuario, Partial<Record<Modulo, Nivel>>> = {
   admin: Object.fromEntries((Object.keys(MODULOS) as Modulo[]).map((m) => [m, E])),
+  digitador: { planes_mejora: E },
   jefe_proyecto: {
-    inicio: V, calendario: V, cronograma: E, consultores: E, indicadores: V, acciones: E,
+    planes_mejora: E, inicio: V, calendario: V, cronograma: E, consultores: E, indicadores: V, acciones: E,
     capacitaciones: E, beneficiarios: E, rrhh: V,
   },
-  jefe_comercial: { inicio: V, calendario: V, cronograma: V, indicadores: V, capacitaciones: E },
+  jefe_comercial: { planes_mejora: E, inicio: V, calendario: V, cronograma: V, indicadores: V, capacitaciones: E },
   asistente: {
-    inicio: V, calendario: V, cronograma: V, capacitaciones: E, beneficiarios: E,
+    planes_mejora: E, inicio: V, calendario: V, cronograma: V, capacitaciones: E, beneficiarios: E,
   },
-  capacitador: { calendario: V, capacitaciones: E },
+  capacitador: { planes_mejora: E, calendario: V, capacitaciones: E },
   gestion_documental: {
-    inicio: V, calendario: V, cronograma: V, capacitaciones: E, beneficiarios: V, logistica: E, sedes: E, mantenimiento: E, documental: E,
+    planes_mejora: E, inicio: V, calendario: V, cronograma: V, capacitaciones: E, beneficiarios: V, logistica: E, sedes: E, mantenimiento: E, documental: E,
   },
-  administradora: { inicio: V, calendario: V, indicadores: V, capacitaciones: E, rrhh: V },
-  rrhh: { inicio: V, calendario: V, cronograma: V, consultores: E, capacitaciones: V, beneficiarios: V, rrhh: E },
+  administradora: { planes_mejora: E, inicio: V, calendario: V, indicadores: V, capacitaciones: E, rrhh: V },
+  rrhh: { planes_mejora: V, inicio: V, calendario: V, cronograma: V, consultores: E, capacitaciones: V, beneficiarios: V, rrhh: E },
 };
 
 export type Matriz = Record<RolUsuario, Partial<Record<Modulo, Nivel>>>;
@@ -146,7 +150,7 @@ export function puedeAbrir(r: Roles, ruta: string) {
 
 /** Página de inicio según el rol (el capacitador va directo a sus sesiones). */
 export function inicioDe(r: Roles) {
-  return puede(r, "inicio") ? "/" : puede(r, "capacitaciones") ? "/operativo/capacitaciones" : puede(r, "calendario") ? "/calendario" : "/cuenta";
+  return puede(r, "inicio") ? "/" : puede(r,"planes_mejora")&&!puede(r,"capacitaciones")?"/operativo/planes-mejora": puede(r, "capacitaciones") ? "/operativo/capacitaciones" : puede(r, "calendario") ? "/calendario" : "/cuenta";
 }
 
 /** ¿Este usuario puede registrar una actividad del flujo que corresponde a estos roles? */

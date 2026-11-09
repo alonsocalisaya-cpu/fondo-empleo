@@ -1,11 +1,12 @@
-export const CATEGORIAS_PROBLEMA = ["Vender y conseguir clientes", "Dinero y cuentas", "Productos y existencias", "Entregas y tiempo", "Presentación del producto", "Papeles del negocio", "Otro"] as const;
+export const INICIO_PLAN_MEJORA = "2027-01";
+export const CATEGORIAS_PROBLEMA = ["Vender y conseguir clientes", "Dinero y cuentas", "Productos y existencias", "Entregas y tiempo", "Presentación del producto", "Formalización del negocio", "Otro"] as const;
 export type MetaMejora = { id: string; texto: string; valor: string; unidad: string };
 export type IndicadorMejora = { id: string; nombre: string; metas: MetaMejora[] };
 export type ProblemaMejora = { id: string; categoria: string; texto: string; objetivo: string; plazo: string; indicadores: IndicadorMejora[]; estrategias: string[]; recursos: string[] };
 export type RecursoMejora = { id: string; problemaId: string; nombre: string; cantidad: string; costo: string; fuente: "propios" | "externo" };
 export type ActividadMejora = { id: string; problemaId: string; nombre: string; meses: number[]; responsable: string };
 export type PlanMejora = { problemas: ProblemaMejora[]; presupuesto: RecursoMejora[]; inicio: string; actividades: ActividadMejora[] };
-export type ResultadoPlan = { error?: string; ok?: boolean; revision?: number };
+export type ResultadoPlan = { error?: string; ok?: boolean; revision?: number; plan?: PlanMejora };
 export function planInicial(problemas: {texto:string}[]): PlanMejora {
  return { problemas: Array.from({length:Math.max(3,problemas.length)},(_,i)=>({id:`p${i+1}`,categoria:"",texto:problemas[i]?.texto ?? "",objetivo:"",plazo:"",indicadores:[],estrategias:[],recursos:[]})), presupuesto:[], inicio:"", actividades:[] };
 }
@@ -26,4 +27,11 @@ export function validarPlan(entrada: unknown): PlanMejora {
  const actividades=unico(lista(d.actividades,200).map((x)=>{const a=obj(x);const meses=lista(a.meses,6).map(x=>{if(!Number.isInteger(x)||Number(x)<1||Number(x)>6)throw Error("Mes inválido.");return Number(x);});return {id:id(a.id),problemaId:vinculacion(a.problemaId),nombre:texto(a.nombre),meses:[...new Set(meses)],responsable:texto(a.responsable,150)};}));
  const inicio=texto(d.inicio,7);if(inicio && !/^\d{4}-(0[1-9]|1[0-2])$/.test(inicio))throw Error("Mes de inicio inválido.");
  return {problemas,presupuesto,actividades,inicio};
+}
+
+export type SeccionEditorPlan = "problemas" | "presupuesto" | "cronograma";
+export function combinarSeccionPlan(base:PlanMejora, entrada:Partial<PlanMejora>, seccion:SeccionEditorPlan):PlanMejora {
+ if(seccion==="problemas")return {...base,problemas:entrada.problemas!};
+ if(seccion==="presupuesto")return {...base,presupuesto:entrada.presupuesto!};
+ return {...base,inicio:entrada.inicio!,actividades:entrada.actividades!};
 }

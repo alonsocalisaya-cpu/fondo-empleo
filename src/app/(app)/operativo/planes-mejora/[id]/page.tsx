@@ -12,7 +12,7 @@ import { exigir } from "@/lib/auth";
 import { puede } from "@/lib/permisos";
 import { Encabezado } from "@/components/ui";
 export default async function Page({params, searchParams}: {params: Promise<{id:string}>; searchParams: Promise<Record<string,string|undefined>>}) {
-  const u = await exigir("capacitaciones", "ver");
+  const u = await exigir("planes_mejora", "ver");
   const {id} = await params; const sp = await searchParams;
   const [persona] = await db.select({p:participantes,sede:sedes.nombre}).from(participantes).leftJoin(sedes,eq(sedes.id,participantes.sedeId)).where(eq(participantes.id,Number(id)||0));
   if (!persona) notFound();
@@ -28,7 +28,7 @@ export default async function Page({params, searchParams}: {params: Promise<{id:
     <Encabezado antetitulo={`Planes de Mejora · ${persona.sede || "Sin sede"}`} titulo={`${persona.p.nombres} ${persona.p.apellidos}`} />
     {sp.guardado && <p role="status" className="rounded-lg bg-green-50 p-4 text-green-800">Versión guardada correctamente.</p>}
     {sp.error && <p role="alert" className="rounded-lg bg-red-50 p-4 text-red-800">{sp.error}</p>}
-    <EditorPlan tabInicial={sp.preparacion ? "vigente" : "problemas"} participanteId={persona.p.id} inicial={persona.p.planMejora ?? planInicial(persona.p.problemasMejora ?? actual?.problemas ?? [])} revision={persona.p.planRevision} editable={puede(u.roles,"capacitaciones","editar")} planVigente={<VersionesPlan participanteId={persona.p.id} editable={puede(u.roles,"capacitaciones","editar")} versiones={versiones.map(({v,autor})=>({id:v.id,numero:v.numero,estado:v.estado,edicion:v.edicion,cambios:v.cambios,archivos:v.archivos,autor:autor??"Usuario",fecha:v.creadoEn.toISOString(),publicado:v.publicadoEn?.toISOString()??null}))} />} />
+    <EditorPlan evaluacionInicial={persona.p.evaluacionPlanMejora} estadoEvaluacion={persona.p.estadoPlanMejora} evaluacionRevision={persona.p.evaluacionPlanRevision} tabInicial={sp.preparacion ? "vigente" : "problemas"} participanteId={persona.p.id} inicial={persona.p.planMejora ?? planInicial(persona.p.problemasMejora ?? actual?.problemas ?? [])} revision={persona.p.planRevision} editable={puede(u.roles,"planes_mejora","editar")} planVigente={<VersionesPlan participanteId={persona.p.id} editable={puede(u.roles,"planes_mejora","editar")} versiones={versiones.map(({v,autor})=>({id:v.id,numero:v.numero,estado:v.estado,edicion:v.edicion,cambios:v.cambios,archivos:v.archivos,autor:autor??"Usuario",fecha:v.creadoEn.toISOString(),publicado:v.publicadoEn?.toISOString()??null}))} />} />
     <HistorialCambios entradas={entradas} />
   </>;
 }

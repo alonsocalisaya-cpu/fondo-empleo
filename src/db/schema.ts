@@ -1,3 +1,4 @@
+import type { EvaluacionPlan } from "@/lib/evaluacion-plan";
 import type { CambioPlan } from "@/lib/historial-plan";
 import type { PlanMejora } from "@/lib/plan-mejora";
 import {
@@ -82,6 +83,9 @@ export const capacitadores = pgTable("capacitadores", {
 export const participantes = pgTable("participantes", {
   planMejora: jsonb("plan_mejora").$type<PlanMejora>(),
   planRevision: integer("plan_revision").notNull().default(0),
+  evaluacionPlanMejora: jsonb("evaluacion_plan_mejora").$type<EvaluacionPlan>(),
+  evaluacionPlanRevision: integer("evaluacion_plan_revision").notNull().default(0),
+  estadoPlanMejora: varchar("estado_plan_mejora", { length: 40 }).notNull().default("sin_evaluacion"),
   problemasMejora: jsonb("problemas_mejora").$type<{ texto: string }[]>(),
   id: serial("id").primaryKey(),
   nombres: varchar("nombres", { length: 100 }).notNull(),
@@ -112,6 +116,7 @@ export const historialBeneficiarios = pgTable("historial_beneficiarios", {
 /* ───────────── Personal interno (roles del proceso) ───────────── */
 
 export const rolEnum = pgEnum("rol", [
+  "digitador",
   "jefe_comercial",
   "jefe_proyecto",
   "asistente",
@@ -135,6 +140,7 @@ export const personal = pgTable("personal", {
 /* ───────────── Usuarios del sistema y sus sesiones de ingreso ───────────── */
 
 export const rolUsuarioEnum = pgEnum("rol_usuario", [
+  "digitador",
   "admin",
   "jefe_proyecto",
   "jefe_comercial",

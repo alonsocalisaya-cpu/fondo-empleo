@@ -7,7 +7,7 @@ import { planesMejoraVersiones } from "@/db/schema";
 import { exigir } from "@/lib/auth";
 import { rutaSegura } from "@/lib/archivos";
 export async function GET(req:Request,ctx:{params:Promise<{id:string}>}) {
- await exigir("capacitaciones","ver");
+ await exigir("planes_mejora","ver");
  const {id}=await ctx.params;
  const indice=Number(new URL(req.url).searchParams.get("indice"));
  const [v]=await db.select().from(planesMejoraVersiones).where(eq(planesMejoraVersiones.id,Number(id)||0));
